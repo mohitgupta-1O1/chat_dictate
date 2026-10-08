@@ -1,0 +1,96 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DictationToolbar } from "../DictationToolbar";
+import type { UseDictationResult } from "../use-dictation";
+
+function fakeDictation(overrides: Partial<UseDictationResult> = {}): UseDictationResult {
+  return {
+    status: "idle",
+    rate: 1,
+    voiceId: undefined,
+    currentWordIndex: -1,
+    error: null,
+    supported: true,
+    disabled: false,
+    play: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    stop: vi.fn(),
+    setRate: vi.fn(),
+    setVoice: vi.fn(),
+    seekToWord: vi.fn(),
+    listVoices: vi.fn(async () => [{ id: "v1", name: "Samantha", lang: "en-US" }]),
+    ...overrides,
+  };
+}
+
+afterEach(cleanup);
+
+describe("DictationToolbar", () => {
+  it("renders nothing when speech is unsupported", () => {
+    const { container } = render(<DictationToolbar dictation={fakeDictation({ supported: false })} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("starts reading from the Dictate button", () => {
+    const d = fakeDictation();
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Read this response aloud" }));
+    expect(d.play).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Stop reading" })).toBeNull();
+  });
+
+  it("disables Dictate while the response is incomplete", () => {
+    render(<DictationToolbar dictation={fakeDictation({ disabled: true })} />);
+    expect(screen.getByRole("button", { name: "Read this response aloud" })).toBeDisabled();
+  });
+
+  it("shows Pause and Stop while playing", () => {
+    const d = fakeDictation({ status: "playing" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause reading" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop reading" }));
+    expect(d.pause).toHaveBeenCalled();
+    expect(d.stop).toHaveBeenCalled();
+    expect(screen.getByText("Reading aloud")).toBeTruthy();
+  });
+
+  it("shows Resume while paused", () => {
+    const d = fakeDictation({ status: "paused" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Resume reading" }));
+    expect(d.resume).toHaveBeenCalled();
+  });
+
+  it("offers exactly the four speeds and marks the current one", () => {
+    const d = fakeDictation({ rate: 1.5 });
+    render(<DictationToolbar dictation={d} />);
+    const group = screen.getByRole("group", { name: "Reading speed" });
+    const buttons = Array.from(group.querySelectorAll("button"));
+    expect(buttons.map((b) => b.textContent)).toEqual(["0.5x", "1x", "1.5x", "2x"]);
+    expect(screen.getByRole("button", { name: "1.5x" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "1x" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "2x" }));
+    expect(d.setRate).toHaveBeenCalledWith(2);
+  });
+
+  it("stops on Escape while active", () => {
+    const d = fakeDictation({ status: "playing" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.keyDown(screen.getByRole("toolbar"), { key: "Escape" });
+    expect(d.stop).toHaveBeenCalled();
+  });
+
+  it("shows errors", () => {
+    render(<DictationToolbar dictation={fakeDictation({ error: "boom" })} />);
+    expect(screen.getByRole("alert").textContent).toBe("boom");
+  });
+
+  it("lists voices and selects one", async () => {
+    const d = fakeDictation();
+    render(<DictationToolbar dictation={d} showVoicePicker />);
+    await screen.findByRole("option", { name: "Samantha (en-US)" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Voice" }), { target: { value: "v1" } });
+    expect(d.setVoice).toHaveBeenCalledWith("v1");
+  });
+});
