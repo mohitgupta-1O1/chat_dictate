@@ -3,6 +3,7 @@ import { createHighlighter } from "../highlighter";
 
 class FakeHighlight {
   ranges: Range[];
+  priority = 0;
   constructor(...ranges: Range[]) {
     this.ranges = ranges;
   }
@@ -126,5 +127,53 @@ describe("auto-scroll", () => {
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     createHighlighter({ autoScroll: false }).scrollIntoView(rangeAt(2000));
     expect(scrollBy).not.toHaveBeenCalled();
+  });
+});
+
+describe("sentence layer", () => {
+  it("registers the sentence under dictation-sentence below the word", () => {
+    const registry = stubHighlightApi();
+    const h = createHighlighter({ autoScroll: false });
+    const word = wordRange();
+    const sentence = wordRange("a whole sentence");
+    h.show(word);
+    h.showSentence(sentence);
+    expect(registry.get("dictation-sentence")?.ranges).toEqual([sentence]);
+    expect(registry.get("dictation-sentence")!.priority).toBeLessThan(registry.get("dictation-word")!.priority);
+  });
+
+  it("showSentence(null) clears only the sentence; clear() clears both", () => {
+    const registry = stubHighlightApi();
+    const h = createHighlighter({ autoScroll: false });
+    h.show(wordRange());
+    h.showSentence(wordRange());
+    h.showSentence(null);
+    expect(registry.has("dictation-sentence")).toBe(false);
+    expect(registry.has("dictation-word")).toBe(true);
+    h.showSentence(wordRange());
+    h.clear();
+    expect(registry.size).toBe(0);
+  });
+
+  it("never scrolls for the sentence", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const range = wordRange();
+    Object.assign(range, {
+      getBoundingClientRect: () => ({ top: 2000, bottom: 2012, left: 0, right: 10, width: 10, height: 12 }),
+    });
+    createHighlighter().showSentence(range);
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("draws overlay sentence boxes without the Highlight API", () => {
+    const range = wordRange();
+    Object.assign(range, { getClientRects: () => [{ left: 1, top: 2, width: 3, height: 4 }] });
+    const h = createHighlighter({ autoScroll: false });
+    h.showSentence(range);
+    expect(document.querySelectorAll(".dictation-overlay-sentence")).toHaveLength(1);
+    expect(document.querySelectorAll(".dictation-overlay-box")).toHaveLength(0);
+    h.clear();
+    expect(document.querySelectorAll(".dictation-overlay-sentence")).toHaveLength(0);
   });
 });

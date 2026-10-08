@@ -10,6 +10,10 @@ class FakeHighlighter implements Highlighter {
   scrolls: boolean[] = [];
   forced: Range[] = [];
   cleared = 0;
+  sentences: (Range | null)[] = [];
+  showSentence(range: Range | null) {
+    this.sentences.push(range);
+  }
   show(range: Range | null, options?: { scroll?: boolean }) {
     this.shown.push(range);
     this.scrolls.push(options?.scroll ?? true);
