@@ -17,6 +17,11 @@ function expectRangesMatch(el: HTMLElement) {
   for (const w of words) if (w.range) expect(w.range.toString()).toBe(text.slice(w.start, w.end));
 }
 
+const sentenceTexts = (el: HTMLElement) => {
+  const r = extractWords(el);
+  return r.sentences.map((s) => r.text.slice(r.words[s.startWord].start, r.words[s.endWord].end));
+};
+
 afterEach(() => {
   document.body.innerHTML = "";
 });
@@ -46,6 +51,9 @@ describe("extraction from real renderer output", () => {
     expect(extractWords(el).text).toBe(
       "Title. Some bold text with code. one. two. A B. 1 2. code block. Math equation here.",
     );
+    expect(sentenceTexts(el)).toEqual([
+      "Title", "Some bold text with code.", "one", "two", "A B", "1 2", "code block", "Math equation here.",
+    ]);
     expectRangesMatch(el);
   });
 
@@ -53,6 +61,7 @@ describe("extraction from real renderer output", () => {
     const source = ["# Title", "", "Fact {% citation id=1 /%} here.", "", "```js", "x", "```"].join("\n");
     const el = mount(renderToStaticMarkup(<MarkdocMarkdown content={source} />));
     expect(extractWords(el).text).toBe("Title. Fact here. code block.");
+    expect(sentenceTexts(el)).toEqual(["Title", "Fact here.", "code block"]);
     expectRangesMatch(el);
   });
 

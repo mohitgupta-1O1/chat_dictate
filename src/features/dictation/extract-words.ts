@@ -5,11 +5,20 @@ export interface Word {
   end: number;
   /** DOM range covering the word, or null for spoken replacement phrases. */
   range: Range | null;
+  /** Index into `ExtractedText.sentences`. */
+  sentence: number;
+}
+
+/** Inclusive word indexes of one sentence. */
+export interface Sentence {
+  startWord: number;
+  endWord: number;
 }
 
 export interface ExtractedText {
   text: string;
   words: Word[];
+  sentences: Sentence[];
 }
 
 export interface Replacement {
@@ -53,6 +62,8 @@ const SOFT_BLOCKS = new Set([
 ]);
 
 const WORD_RE = /\S+/g;
+// A word ending a sentence: . ! or ? (not an ellipsis), optionally followed by closing quotes/brackets.
+const SENTENCE_END_RE = /(?<!\.)[.!?]["'”’)\]]*$/;
 
 const isSentenceBlock = (el: Element) => SENTENCE_BLOCKS.has(el.tagName) || el.classList.contains("katex-display");
 
@@ -66,19 +77,28 @@ export function extractWords(container: Element, options: ExtractOptions = {}): 
   const doc = container.ownerDocument;
   const words: Word[] = [];
   let text = "";
+  const sentences: Sentence[] = [];
+  let sentenceOpen = false;
 
   const softBreak = () => {
     if (text !== "" && !/\s$/.test(text)) text += " ";
   };
   const hardBreak = () => {
+    sentenceOpen = false;
     text = text.replace(/\s+$/, "");
     if (text === "") return;
     text += /[.!?;:,]$/.test(text) ? " " : ". ";
   };
   const addWord = (word: string, range: Range | null) => {
+    if (!sentenceOpen) {
+      sentences.push({ startWord: words.length, endWord: words.length });
+      sentenceOpen = true;
+    }
     const start = text.length;
     text += word;
-    words.push({ start, end: text.length, range });
+    words.push({ start, end: text.length, range, sentence: sentences.length - 1 });
+    sentences[sentences.length - 1].endWord = words.length - 1;
+    if (range && SENTENCE_END_RE.test(word)) sentenceOpen = false;
   };
 
   const visitText = (node: Text) => {
@@ -119,7 +139,7 @@ export function extractWords(container: Element, options: ExtractOptions = {}): 
   };
 
   container.childNodes.forEach(visit);
-  return { text: text.replace(/\s+$/, ""), words };
+  return { text: text.replace(/\s+$/, ""), words, sentences };
 }
 
 /** Index of the word containing (or last starting before) `offset` in the spoken text. */
@@ -149,4 +169,21 @@ export function wordIndexAtPoint(words: readonly Word[], node: Node, offset: num
     last = i;
   }
   return last;
+}
+
+/** A range from the first to the last on-page word of `sentence`, or null if it has none. */
+export function sentenceRange(words: readonly Word[], sentence: Sentence): Range | null {
+  let first: Range | null = null;
+  let last: Range | null = null;
+  for (let i = sentence.startWord; i <= sentence.endWord; i++) {
+    const range = words[i].range;
+    if (!range) continue;
+    first ??= range;
+    last = range;
+  }
+  if (!first || !last) return null;
+  const range = first.startContainer.ownerDocument!.createRange();
+  range.setStart(first.startContainer, first.startOffset);
+  range.setEnd(last.endContainer, last.endOffset);
+  return range;
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { extractWords, wordIndexAtOffset, wordIndexAtPoint, type ExtractedText } from "../extract-words";
+import { extractWords, sentenceRange, wordIndexAtOffset, wordIndexAtPoint, type ExtractedText } from "../extract-words";
 
 function mount(html: string): HTMLElement {
   const el = document.createElement("div");
@@ -16,7 +16,7 @@ afterEach(() => {
 
 describe("extractWords", () => {
   it("returns empty text for an empty container", () => {
-    expect(extractWords(mount(""))).toEqual({ text: "", words: [] });
+    expect(extractWords(mount(""))).toEqual({ text: "", words: [], sentences: [] });
   });
 
   it("separates paragraphs as sentences", () => {
@@ -126,5 +126,57 @@ describe("wordIndexAtPoint", () => {
     const el = mount("<p>alpha</p>");
     const { words } = extractWords(el);
     expect(wordIndexAtPoint(words, document.body, 0)).toBe(-1);
+  });
+});
+
+describe("sentences", () => {
+  const sentenceTexts = (r: ExtractedText) =>
+    r.sentences.map((s) => r.text.slice(r.words[s.startWord].start, r.words[s.endWord].end));
+
+  it("splits at sentence punctuation", () => {
+    const r = extractWords(mount("<p>One two. Three four! Five?</p>"));
+    expect(r.sentences).toEqual([
+      { startWord: 0, endWord: 1 },
+      { startWord: 2, endWord: 3 },
+      { startWord: 4, endWord: 4 },
+    ]);
+    expect(r.words.map((w) => w.sentence)).toEqual([0, 0, 1, 1, 2]);
+  });
+
+  it("allows closing quotes and brackets after the punctuation", () => {
+    const r = extractWords(mount('<p>He said "go." Then left (fast.) Done</p>'));
+    expect(sentenceTexts(r)).toEqual(['He said "go."', "Then left (fast.)", "Done"]);
+  });
+
+  it("does not split decimals or ellipses", () => {
+    expect(sentenceTexts(extractWords(mount("<p>Pi is 3.14 today. Wait... what?</p>")))).toEqual([
+      "Pi is 3.14 today.",
+      "Wait... what?",
+    ]);
+  });
+
+  it("ends a sentence at every block break", () => {
+    const r = extractWords(
+      mount("<h2>Title</h2><ul><li>one</li><li>two</li></ul><table><tr><td>A</td><td>B</td></tr><tr><td>1</td><td>2</td></tr></table>"),
+    );
+    expect(sentenceTexts(r)).toEqual(["Title", "one", "two", "A B", "1 2"]);
+  });
+
+  it("makes a code block its own sentence and keeps inline equations inside theirs", () => {
+    const r = extractWords(
+      mount('<p>Run this:</p><pre>x</pre><p>So <span class="katex">x</span> grows.</p>'),
+    );
+    expect(sentenceTexts(r)).toEqual(["Run this:", "code block", "So equation grows."]);
+  });
+
+  it("has no sentences for an empty container", () => {
+    expect(extractWords(mount("")).sentences).toEqual([]);
+  });
+
+  it("builds a range covering a sentence's words", () => {
+    const el = mount("<p>One <b>two</b>. Three</p><pre>x</pre>");
+    const r = extractWords(el);
+    expect(sentenceRange(r.words, r.sentences[0])?.toString()).toBe("One two.");
+    expect(sentenceRange(r.words, r.sentences[2])).toBeNull(); // "code block" has no range
   });
 });
