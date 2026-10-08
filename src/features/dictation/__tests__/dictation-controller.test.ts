@@ -372,4 +372,73 @@ describe("DictationController", () => {
       expect(highlighter.forced.map((range) => range.toString())).toEqual(["three"]);
     });
   });
+
+  // "One two. Three four." — words start at 0, 4, 9, 15
+  const TWO_SENTENCES = "<p>One two. Three four.</p>";
+
+  it("highlights the current sentence and updates it only when the sentence changes", async () => {
+    const { engine, highlighter, controller } = setup(TWO_SENTENCES);
+    await controller.play();
+    expect(highlighter.sentences.map((r) => r?.toString())).toEqual(["One two."]);
+    engine.emitBoundary(4);
+    expect(highlighter.sentences).toHaveLength(1);
+    engine.emitBoundary(9);
+    expect(highlighter.sentences.map((r) => r?.toString())).toEqual(["One two.", "Three four."]);
+  });
+
+  it("skips to the next sentence while playing", async () => {
+    const { engine, controller, state } = setup(TWO_SENTENCES);
+    await controller.play();
+    await controller.skipSentence(1);
+    expect(engine.lastSpoken?.text).toBe("Three four.");
+    expect(state()).toMatchObject({ status: "playing", currentWordIndex: 2 });
+  });
+
+  it("does nothing when skipping past the last sentence", async () => {
+    const { engine, controller } = setup(TWO_SENTENCES);
+    await controller.seekToWord(3);
+    await controller.skipSentence(1);
+    expect(engine.spoken).toHaveLength(1);
+  });
+
+  it("goes to the previous sentence near the start of a sentence", async () => {
+    const { engine, controller } = setup(TWO_SENTENCES);
+    await controller.seekToWord(2);
+    await controller.skipSentence(-1);
+    expect(engine.lastSpoken?.text).toBe("One two. Three four.");
+  });
+
+  it("restarts the current sentence when well into it", async () => {
+    // "One two. Three four five six seven." — sentence 1 starts at word 2
+    const { engine, controller } = setup("<p>One two. Three four five six seven.</p>");
+    await controller.seekToWord(5);
+    await controller.skipSentence(-1);
+    expect(engine.lastSpoken?.text).toBe("Three four five six seven.");
+  });
+
+  it("stays paused when skipping while paused, then resumes from the new sentence", async () => {
+    const { engine, controller, state } = setup(TWO_SENTENCES);
+    await controller.play();
+    controller.pause();
+    await controller.skipSentence(1);
+    expect(state()).toMatchObject({ status: "paused", currentWordIndex: 2 });
+    expect(engine.calls.at(-1)).toBe("cancel");
+    expect(engine.spoken).toHaveLength(1);
+    await controller.resume();
+    expect(engine.lastSpoken?.text).toBe("Three four.");
+  });
+
+  it("ignores skips while idle", async () => {
+    const { engine, controller } = setup(TWO_SENTENCES);
+    await controller.skipSentence(1);
+    expect(engine.spoken).toHaveLength(0);
+  });
+
+  it("clears the sentence highlight on stop and shows it again on the next play", async () => {
+    const { highlighter, controller } = setup(TWO_SENTENCES);
+    await controller.play();
+    controller.stop();
+    await controller.play();
+    expect(highlighter.sentences.map((r) => r?.toString())).toEqual(["One two.", "One two."]);
+  });
 });

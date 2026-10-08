@@ -1,6 +1,7 @@
 import type { SpeechEngine, Unsubscribe, VoiceInfo } from "./engines/types";
 import {
   extractWords,
+  sentenceRange,
   wordIndexAtOffset,
   wordIndexAtPoint,
   type ExtractOptions,
@@ -52,6 +53,7 @@ export class DictationController {
   private pausedByCancel = false;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private stalledAt = -1;
+  private currentSentence = -1;
   private preferencesUnsub: Unsubscribe | null = null;
   private preferenceRestart: Promise<void> = Promise.resolve();
 
@@ -108,6 +110,7 @@ export class DictationController {
     if (activeController === this) this.engine?.cancel();
     this.release();
     this.highlighter?.clear();
+    this.currentSentence = -1;
     this.update({ status: "idle", currentWordIndex: -1, following: true, error: null });
   }
 
@@ -139,6 +142,33 @@ export class DictationController {
     return this.startFrom(index);
   }
 
+  /**
+   * Moves by sentence like a music player: back restarts the current sentence unless
+   * we are at its start, then it goes to the previous one. Paused stays paused.
+   */
+  async skipSentence(direction: -1 | 1): Promise<void> {
+    const { status, currentWordIndex } = this.snapshot;
+    const extracted = this.extracted;
+    if (status === "idle" || !extracted || currentWordIndex < 0) return;
+    const { words, sentences } = extracted;
+    const current = words[currentWordIndex].sentence;
+    let target: number;
+    if (direction === 1) {
+      if (current >= sentences.length - 1) return;
+      target = current + 1;
+    } else {
+      target = currentWordIndex - sentences[current].startWord > 2 ? current : Math.max(0, current - 1);
+    }
+    const index = sentences[target].startWord;
+    if (status === "paused") {
+      this.engine?.cancel();
+      this.pausedByCancel = true;
+      this.setWord(index);
+      return;
+    }
+    return this.startFrom(index);
+  }
+
   /** Turn auto-scroll to the current word on or off without affecting speech. */
   setFollowing(on: boolean): void {
     this.update({ following: on });
@@ -154,6 +184,7 @@ export class DictationController {
   /** Call when the message content changed: stops playback and forgets cached words. */
   invalidate(): void {
     this.extracted = null;
+    this.currentSentence = -1;
     if (this.snapshot.status !== "idle") this.stop();
   }
 
@@ -299,9 +330,14 @@ export class DictationController {
   };
 
   private setWord(index: number): void {
-    const word = this.extracted?.words[index];
-    if (!word) return;
+    const extracted = this.extracted;
+    const word = extracted?.words[index];
+    if (!extracted || !word) return;
     this.highlighter ??= (this.options.createHighlighter ?? createHighlighter)();
+    if (word.sentence !== this.currentSentence) {
+      this.currentSentence = word.sentence;
+      this.highlighter.showSentence(sentenceRange(extracted.words, extracted.sentences[word.sentence]));
+    }
     this.highlighter.show(word.range, { scroll: this.snapshot.following });
     this.update({ currentWordIndex: index });
   }
