@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { extractWords } from "@/features/dictation/extract-words";
 import { AgentMarkdown } from "../AgentMarkdown";
 import { MarkdocMarkdown } from "../MarkdocMarkdown";
+import { DEMO_MESSAGES } from "../messages";
 
 function mount(html: string): HTMLElement {
   const el = document.createElement("div");
@@ -52,6 +53,13 @@ describe("extraction from real renderer output", () => {
     const source = ["# Title", "", "Fact {% citation id=1 /%} here.", "", "```js", "x", "```"].join("\n");
     const el = mount(renderToStaticMarkup(<MarkdocMarkdown content={source} />));
     expect(extractWords(el).text).toBe("Title. Fact here. code block.");
+    expectRangesMatch(el);
+  });
+
+  it("reads inline code in the demo agent message as normal text", () => {
+    const el = mount(renderToStaticMarkup(<AgentMarkdown content={DEMO_MESSAGES[0].content} />));
+    expect(el.querySelector("p > code")?.textContent).toBe("balance");
+    expect(extractWords(el).text).toContain("where balance holds the result:");
     expectRangesMatch(el);
   });
 });

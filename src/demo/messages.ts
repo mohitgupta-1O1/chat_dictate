@@ -26,7 +26,7 @@ export const DEMO_MESSAGES: DemoMessage[] = [
       "| 1 | \\$1,050 |",
       "| 10 | \\$1,629 |",
       "",
-      "You can check this with a few lines of code:",
+      "You can check this with a few lines of code, where `balance` holds the result:",
       "",
       "```python",
       "balance = 1000 * (1 + 0.05) ** 10",
