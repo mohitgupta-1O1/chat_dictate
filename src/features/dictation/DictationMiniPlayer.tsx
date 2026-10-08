@@ -10,6 +10,7 @@ export interface DictationMiniPlayerProps {
 }
 
 const noActiveDictation = () => null;
+const noToolbar = () => null;
 
 /**
  * Floating controls for the message being read, shown while its own toolbar is off-screen.
@@ -26,7 +27,8 @@ function MiniPlayer({ controller, className }: { controller: DictationController
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const toolbarVisible = useToolbarVisible(controller);
+  const toolbar = useSyncExternalStore(controller.subscribeToolbarElement, controller.getToolbarElement, noToolbar);
+  const toolbarVisible = useToolbarVisible(toolbar);
   if (status === "idle") return null;
 
   const visible = !toolbarVisible;
@@ -106,10 +108,9 @@ function MiniPlayer({ controller, className }: { controller: DictationController
 }
 
 /** Tracks whether the message's own toolbar is on screen; true until known. */
-function useToolbarVisible(controller: DictationController): boolean {
+function useToolbarVisible(element: HTMLElement | null): boolean {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
-    const element = controller.getToolbarElement();
     if (!element || typeof IntersectionObserver === "undefined") {
       setVisible(false);
       return;
@@ -117,6 +118,6 @@ function useToolbarVisible(controller: DictationController): boolean {
     const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [controller]);
+  }, [element]);
   return visible;
 }

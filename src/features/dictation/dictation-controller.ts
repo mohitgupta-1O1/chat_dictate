@@ -76,6 +76,7 @@ export class DictationController {
   private preferencesUnsub: Unsubscribe | null = null;
   private preferenceRestart: Promise<void> = Promise.resolve();
   private toolbarElement: HTMLElement | null = null;
+  private readonly toolbarListeners = new Set<() => void>();
 
   constructor(options: DictationControllerOptions) {
     this.options = options;
@@ -102,12 +103,20 @@ export class DictationController {
 
   /** The message's toolbar; the mini-player shows itself when it is off-screen. */
   setToolbarElement(element: HTMLElement | null): void {
+    if (element === this.toolbarElement) return;
     this.toolbarElement = element;
+    this.toolbarListeners.forEach((listener) => listener());
   }
 
-  getToolbarElement(): HTMLElement | null {
-    return this.toolbarElement;
-  }
+  getToolbarElement = (): HTMLElement | null => this.toolbarElement;
+
+  /** Notifies when the toolbar element is registered, replaced or removed. */
+  subscribeToolbarElement = (listener: () => void): Unsubscribe => {
+    this.toolbarListeners.add(listener);
+    return () => {
+      this.toolbarListeners.delete(listener);
+    };
+  };
 
   async play(): Promise<void> {
     const { status, currentWordIndex } = this.snapshot;

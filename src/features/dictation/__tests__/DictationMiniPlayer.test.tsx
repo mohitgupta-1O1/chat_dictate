@@ -101,6 +101,20 @@ describe("DictationMiniPlayer", () => {
     expect(pill()).not.toBeNull();
   });
 
+  it("watches a toolbar registered or replaced after reading started", async () => {
+    const { controller } = setup({ withToolbar: false });
+    await act(() => controller.play());
+    expect(pill()).not.toBeNull();
+    const toolbar = document.createElement("div");
+    act(() => controller.setToolbarElement(toolbar));
+    expect(lastObserver().observed).toEqual([toolbar]);
+    lastObserver().trigger(true);
+    expect(pill()).toBeNull();
+    const remounted = document.createElement("div");
+    act(() => controller.setToolbarElement(remounted));
+    expect(lastObserver().observed).toEqual([remounted]);
+  });
+
   it("pauses, resumes, skips and stops the playing message", async () => {
     const { engine, controller } = setup();
     await act(() => controller.play());
