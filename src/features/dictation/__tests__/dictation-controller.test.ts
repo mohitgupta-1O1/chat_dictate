@@ -433,6 +433,47 @@ describe("DictationController", () => {
     expect(engine.lastSpoken?.text).toBe("Three four.");
   });
 
+  it("goes back a sentence within the first 2 words, and restarts the current one from the 3rd", async () => {
+    // "One two. Three four five six seven." — sentence 1 starts at word 2
+    const { engine, controller } = setup("<p>One two. Three four five six seven.</p>");
+    await controller.seekToWord(4); // 2 words in
+    await controller.skipSentence(-1);
+    expect(engine.lastSpoken?.text).toBe("One two. Three four five six seven.");
+    await controller.seekToWord(5); // 3 words in
+    await controller.skipSentence(-1);
+    expect(engine.lastSpoken?.text).toBe("Three four five six seven.");
+  });
+
+  it("restarts the first sentence when going back from it", async () => {
+    const { engine, controller, state } = setup(TWO_SENTENCES);
+    await controller.seekToWord(1);
+    await controller.skipSentence(-1);
+    expect(engine.lastSpoken?.text).toBe("One two. Three four.");
+    expect(state()).toMatchObject({ status: "playing", currentWordIndex: 0 });
+  });
+
+  it("goes back a sentence while paused and stays paused", async () => {
+    const { engine, controller, state } = setup(TWO_SENTENCES);
+    await controller.play();
+    engine.emitBoundary(15);
+    controller.pause();
+    await controller.skipSentence(-1);
+    expect(state()).toMatchObject({ status: "paused", currentWordIndex: 0 });
+    expect(engine.calls.at(-1)).toBe("cancel");
+    expect(engine.spoken).toHaveLength(1);
+    await controller.resume();
+    expect(engine.spoken).toHaveLength(2);
+    expect(engine.lastSpoken?.text).toBe("One two. Three four.");
+  });
+
+  it("leaves following off after a skip", async () => {
+    const { controller, state } = setup(TWO_SENTENCES);
+    await controller.play();
+    controller.setFollowing(false);
+    await controller.skipSentence(1);
+    expect(state().following).toBe(false);
+  });
+
   it("ignores skips while idle", async () => {
     const { engine, controller } = setup(TWO_SENTENCES);
     await controller.skipSentence(1);

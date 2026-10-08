@@ -176,4 +176,22 @@ describe("sentence layer", () => {
     h.clear();
     expect(document.querySelectorAll(".dictation-overlay-sentence")).toHaveLength(0);
   });
+
+  it("keeps overlay word and sentence boxes independent", () => {
+    const rects = (range: Range) =>
+      Object.assign(range, { getClientRects: () => [{ left: 1, top: 2, width: 3, height: 4 }] });
+    const h = createHighlighter({ autoScroll: false });
+    const count = (selector: string) => document.querySelectorAll(selector).length;
+    h.showSentence(rects(wordRange("a whole sentence")));
+    h.show(rects(wordRange()));
+    expect(count(".dictation-overlay-sentence")).toBe(1);
+    expect(count(".dictation-overlay-box")).toBe(1);
+    h.show(null);
+    expect(count(".dictation-overlay-sentence")).toBe(1);
+    expect(count(".dictation-overlay-box")).toBe(0);
+    h.show(rects(wordRange()));
+    h.showSentence(null);
+    expect(count(".dictation-overlay-sentence")).toBe(0);
+    expect(count(".dictation-overlay-box")).toBe(1);
+  });
 });

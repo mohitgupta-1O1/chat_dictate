@@ -187,8 +187,8 @@ export class DictationController {
   }
 
   /**
-   * Moves by sentence like a music player: back restarts the current sentence unless
-   * we are at its start, then it goes to the previous one. Paused stays paused.
+   * Moves by sentence like a music player: back restarts the current sentence, or goes to
+   * the previous one when within its first 2 words. Paused stays paused.
    */
   async skipSentence(direction: -1 | 1): Promise<void> {
     const { status, currentWordIndex } = this.snapshot;
@@ -205,8 +205,7 @@ export class DictationController {
     }
     const index = sentences[target].startWord;
     if (status === "paused") {
-      this.engine?.cancel();
-      this.pausedByCancel = true;
+      this.cancelUntilResume();
       this.setWord(index);
       return;
     }
@@ -251,10 +250,15 @@ export class DictationController {
     if (status === "playing") return this.startFrom(currentWordIndex);
     if (status === "paused") {
       // Engines can't change rate/voice mid-utterance; restart from this word on resume.
-      this.engine?.cancel();
-      this.pausedByCancel = true;
+      this.cancelUntilResume();
     }
     // While loading, startFrom reads the new rate/voice after its await.
+  }
+
+  /** Silences the engine while paused; resume() then restarts from the current word. */
+  private cancelUntilResume(): void {
+    this.engine?.cancel();
+    this.pausedByCancel = true;
   }
 
   /** Subscribes to saved preferences (again after dispose); never during SSR. */
@@ -347,8 +351,7 @@ export class DictationController {
     if (!extracted) return;
     if (this.snapshot.status === "paused") {
       // The engine ignored pause(); silence it and restart from the paused word on resume.
-      this.engine?.cancel();
-      this.pausedByCancel = true;
+      this.cancelUntilResume();
       return;
     }
     if (this.snapshot.status !== "playing") return;
