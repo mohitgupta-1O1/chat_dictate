@@ -3,3 +3,54 @@ body {
   font-family: system-ui, sans-serif;
   line-height: 1.6;
 }
+
+.chat {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.chat-scroll {
+  height: 75vh;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.chat-user {
+  margin: 1rem 0 0.5rem auto;
+  width: fit-content;
+  max-width: 80%;
+  padding: 0.5rem 0.9rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, #2563eb 12%, transparent);
+}
+
+.chat-message {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.chat-message-meta {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.chat-message-body table {
+  border-collapse: collapse;
+}
+
+.chat-message-body th,
+.chat-message-body td {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  padding: 0.25rem 0.6rem;
+}
+
+.chat-message-body pre {
+  overflow-x: auto;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
