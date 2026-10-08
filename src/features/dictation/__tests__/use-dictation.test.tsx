@@ -20,6 +20,21 @@ function Message({ html, engine, isComplete = true }: { html: string; engine?: S
   );
 }
 
+// Renders the container only once there is content, like chat UIs that show a spinner first.
+function LateMessage({ html, engine, isComplete }: { html?: string; engine: SpeechEngine; isComplete: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const d = useDictation(ref, { engine, isComplete, autoScroll: false });
+  return (
+    <div>
+      <button type="button" onClick={d.play}>
+        play
+      </button>
+      <output data-testid="state">{`${d.supported}|${d.disabled}|${d.status}|${d.currentWordIndex}`}</output>
+      {html !== undefined && <div ref={ref} dangerouslySetInnerHTML={{ __html: html }} />}
+    </div>
+  );
+}
+
 const state = () => screen.getByTestId("state").textContent;
 const content = () => screen.getByTestId("content");
 
@@ -119,6 +134,29 @@ describe("useDictation", () => {
       content().querySelector("p")!.textContent = "changed";
     });
     expect(state()).toBe("true|false|idle|-1");
+  });
+
+  it("reads the newest content when the container mounts late and is regenerated", async () => {
+    const engine = new FakeEngine();
+    const { rerender } = render(<LateMessage engine={engine} isComplete={false} />);
+    rerender(<LateMessage html="<p>first answer</p>" engine={engine} isComplete={true} />);
+    await clickPlay();
+    expect(engine.lastSpoken?.text).toBe("first answer.");
+
+    rerender(<LateMessage html="<p>regenerated answer</p>" engine={engine} isComplete={false} />);
+    expect(state()).toBe("true|true|idle|-1");
+    rerender(<LateMessage html="<p>regenerated answer</p>" engine={engine} isComplete={true} />);
+    await clickPlay();
+    expect(engine.lastSpoken?.text).toBe("regenerated answer.");
+  });
+
+  it("observes a container that mounts after the hook", async () => {
+    const engine = new FakeEngine();
+    const { rerender } = render(<LateMessage engine={engine} isComplete={false} />);
+    rerender(<LateMessage html="<p>first answer</p>" engine={engine} isComplete={true} />);
+    await clickPlay();
+    rerender(<LateMessage html="<p>edited answer</p>" engine={engine} isComplete={true} />);
+    await waitFor(() => expect(state()).toBe("true|false|idle|-1"));
   });
 
   it("cancels speech on unmount", async () => {

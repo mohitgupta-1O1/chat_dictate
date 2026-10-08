@@ -83,10 +83,12 @@ export function useDictation(
     });
     observer.observe(container, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [controller, ref]);
+    // isComplete: re-read ref.current, since the container may mount or be replaced while streaming.
+  }, [controller, ref, isComplete]);
 
   useEffect(() => {
-    if (!isComplete) controller.stop();
+    // Content may have changed (or the container appeared) without the observer seeing it.
+    controller.invalidate();
   }, [controller, isComplete]);
 
   useEffect(() => {
