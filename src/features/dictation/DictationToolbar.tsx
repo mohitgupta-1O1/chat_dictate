@@ -74,6 +74,11 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
           <span aria-hidden="true">■</span> Stop
         </button>
       )}
+      {active && !dictation.following && (
+        <button type="button" className="dictation-btn" onClick={dictation.followCurrentWord}>
+          <span aria-hidden="true">↓</span> Back to current word
+        </button>
+      )}
       <div role="group" aria-label="Reading speed" className="dictation-rates">
         {RATES.map((value) => (
           <button

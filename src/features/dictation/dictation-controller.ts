@@ -17,6 +17,8 @@ export interface DictationSnapshot {
   voiceId: string | undefined;
   /** Index into the extracted words, or -1 when nothing is highlighted. */
   currentWordIndex: number;
+  /** Auto-scroll keeps the current word in view. Turned off when the user scrolls away. */
+  following: boolean;
   error: string | null;
 }
 
@@ -59,6 +61,7 @@ export class DictationController {
       rate: options.initialRate ?? DEFAULT_RATE,
       voiceId: undefined,
       currentWordIndex: -1,
+      following: true,
       error: null,
     };
   }
@@ -76,6 +79,7 @@ export class DictationController {
     const { status, currentWordIndex } = this.snapshot;
     if (status === "playing" || status === "loading") return;
     if (status === "paused") return this.resume();
+    this.update({ following: true });
     return this.startFrom(Math.max(0, currentWordIndex));
   }
 
@@ -101,7 +105,7 @@ export class DictationController {
     if (activeController === this) this.engine?.cancel();
     this.release();
     this.highlighter?.clear();
-    this.update({ status: "idle", currentWordIndex: -1, error: null });
+    this.update({ status: "idle", currentWordIndex: -1, following: true, error: null });
   }
 
   async setRate(rate: number): Promise<void> {
@@ -115,6 +119,7 @@ export class DictationController {
   }
 
   async seekToWord(index: number): Promise<void> {
+    this.update({ following: true });
     return this.startFrom(index);
   }
 
@@ -122,7 +127,21 @@ export class DictationController {
     const extracted = this.ensureExtracted();
     if (!extracted) return;
     const index = wordIndexAtPoint(extracted.words, node, offset);
-    if (index >= 0) return this.startFrom(index);
+    if (index < 0) return;
+    this.update({ following: true });
+    return this.startFrom(index);
+  }
+
+  /** Turn auto-scroll to the current word on or off without affecting speech. */
+  setFollowing(on: boolean): void {
+    this.update({ following: on });
+  }
+
+  /** Turns following back on and scrolls the current word into view now. */
+  followCurrentWord(): void {
+    this.update({ following: true });
+    const range = this.extracted?.words[this.snapshot.currentWordIndex]?.range;
+    if (range && this.snapshot.status !== "idle") this.highlighter?.scrollIntoView(range);
   }
 
   /** Call when the message content changed: stops playback and forgets cached words. */
@@ -258,7 +277,7 @@ export class DictationController {
     const word = this.extracted?.words[index];
     if (!word) return;
     this.highlighter ??= (this.options.createHighlighter ?? createHighlighter)();
-    this.highlighter.show(word.range);
+    this.highlighter.show(word.range, { scroll: this.snapshot.following });
     this.update({ currentWordIndex: index });
   }
 

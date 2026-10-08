@@ -102,4 +102,29 @@ describe("auto-scroll", () => {
     createHighlighter({ autoScroll: false }).show(rangeAt(2000));
     expect(scrollBy).not.toHaveBeenCalled();
   });
+
+  it("does not scroll when show is told not to", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    createHighlighter().show(rangeAt(2000), { scroll: false });
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("scrollIntoView scrolls even when the word is visible", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const h = createHighlighter();
+    const range = rangeAt(100);
+    h.show(range);
+    expect(scrollBy).not.toHaveBeenCalled();
+    h.scrollIntoView(range);
+    expect(scrollBy).toHaveBeenCalledWith({ top: 100 - window.innerHeight / 3, behavior: "smooth" });
+  });
+
+  it("scrollIntoView does nothing when auto-scroll is off", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    createHighlighter({ autoScroll: false }).scrollIntoView(rangeAt(2000));
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
 });

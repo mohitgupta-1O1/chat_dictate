@@ -10,6 +10,7 @@ function fakeDictation(overrides: Partial<UseDictationResult> = {}): UseDictatio
     voiceId: undefined,
     currentWordIndex: -1,
     error: null,
+    following: true,
     supported: true,
     disabled: false,
     play: vi.fn(),
@@ -19,6 +20,7 @@ function fakeDictation(overrides: Partial<UseDictationResult> = {}): UseDictatio
     setRate: vi.fn(),
     setVoice: vi.fn(),
     seekToWord: vi.fn(),
+    followCurrentWord: vi.fn(),
     listVoices: vi.fn(async () => [{ id: "v1", name: "Samantha", lang: "en-US" }]),
     ...overrides,
   };
@@ -69,9 +71,9 @@ describe("DictationToolbar", () => {
 
   it("gives every button an accessible name that starts with its visible text", () => {
     for (const status of ["idle", "loading", "playing", "paused"] as const) {
-      const { unmount } = render(<DictationToolbar dictation={fakeDictation({ status })} />);
+      const { unmount } = render(<DictationToolbar dictation={fakeDictation({ status, following: false })} />);
       for (const button of screen.getAllByRole("button")) {
-        const visible = button.textContent!.replace(/[▶❚■…]/g, "").trim();
+        const visible = button.textContent!.replace(/[▶❚■…↓]/g, "").trim();
         const name = button.getAttribute("aria-label") ?? visible;
         expect(name.startsWith(visible)).toBe(true);
       }
@@ -121,5 +123,24 @@ describe("DictationToolbar", () => {
     await screen.findByRole("option", { name: "Samantha (en-US)" });
     fireEvent.change(screen.getByRole("combobox", { name: "Voice" }), { target: { value: "v1" } });
     expect(d.setVoice).toHaveBeenCalledWith("v1");
+  });
+
+  it("offers Back to current word only while reading and not following", () => {
+    const back = () => screen.queryByRole("button", { name: "Back to current word" });
+    const { rerender } = render(<DictationToolbar dictation={fakeDictation({ status: "playing" })} />);
+    expect(back()).toBeNull();
+    rerender(<DictationToolbar dictation={fakeDictation({ status: "idle", following: false })} />);
+    expect(back()).toBeNull();
+    for (const status of ["loading", "playing", "paused"] as const) {
+      rerender(<DictationToolbar dictation={fakeDictation({ status, following: false })} />);
+      expect(back()).not.toBeNull();
+    }
+  });
+
+  it("follows the current word again from the Back to current word button", () => {
+    const d = fakeDictation({ status: "playing", following: false });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Back to current word" }));
+    expect(d.followCurrentWord).toHaveBeenCalled();
   });
 });

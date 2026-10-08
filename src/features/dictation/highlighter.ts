@@ -1,8 +1,13 @@
 import { HIGHLIGHT_NAME } from "./constants";
 
 export interface Highlighter {
-  /** Highlights `range`; `null` clears (used for spoken phrases like "code block"). */
-  show(range: Range | null): void;
+  /**
+   * Highlights `range`; `null` clears (used for spoken phrases like "code block").
+   * `scroll: false` skips auto-scroll (the user scrolled away).
+   */
+  show(range: Range | null, options?: { scroll?: boolean }): void;
+  /** Scrolls `range` into view now, even if it is already visible. No-op without auto-scroll. */
+  scrollIntoView(range: Range): void;
   clear(): void;
   dispose(): void;
 }
@@ -27,13 +32,16 @@ export function createHighlighter(options: HighlighterOptions = {}): Highlighter
   const autoScroll = options.autoScroll ?? true;
   const painter: Painter = supportsHighlightApi() ? new CssHighlightPainter() : new OverlayPainter();
   return {
-    show(range) {
+    show(range, { scroll = true } = {}) {
       if (!range) {
         painter.clear();
         return;
       }
       painter.show(range);
-      if (autoScroll) scrollRangeIntoView(range);
+      if (autoScroll && scroll) scrollRangeIntoView(range);
+    },
+    scrollIntoView(range) {
+      if (autoScroll) scrollRangeIntoView(range, true);
     },
     clear: () => painter.clear(),
     dispose: () => painter.clear(),
@@ -108,7 +116,7 @@ class OverlayPainter implements Painter {
   }
 }
 
-function scrollRangeIntoView(range: Range): void {
+function scrollRangeIntoView(range: Range, force = false): void {
   if (typeof range.getBoundingClientRect !== "function") return;
   const rect = range.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return;
@@ -117,12 +125,12 @@ function scrollRangeIntoView(range: Range): void {
   const scroller = element ? findScrollParent(element) : null;
   if (scroller) {
     const box = scroller.getBoundingClientRect();
-    if (rect.top < box.top + SCROLL_MARGIN || rect.bottom > box.bottom - SCROLL_MARGIN) {
+    if (force || rect.top < box.top + SCROLL_MARGIN || rect.bottom > box.bottom - SCROLL_MARGIN) {
       scroller.scrollBy({ top: rect.top - (box.top + box.height / 3), behavior: "smooth" });
     }
     return;
   }
-  if (rect.top < SCROLL_MARGIN || rect.bottom > window.innerHeight - SCROLL_MARGIN) {
+  if (force || rect.top < SCROLL_MARGIN || rect.bottom > window.innerHeight - SCROLL_MARGIN) {
     window.scrollBy({ top: rect.top - window.innerHeight / 3, behavior: "smooth" });
   }
 }

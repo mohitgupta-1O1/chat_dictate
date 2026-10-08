@@ -60,8 +60,20 @@ useDictation(ref, { extractOptions: { skip: `${DEFAULT_SKIP}, .my-citation` } })
 | `isComplete` | `true` | Keep the toolbar disabled while the response streams. Switching it to `false` also stops any speech |
 | `engine` | browser Web Speech | Any `SpeechEngine` implementation |
 | `extractOptions` | see above | `{ replace, skip }`. Read once on mount |
-| `autoScroll` | `true` | Keep the spoken word visible. Read once on mount |
+| `autoScroll` | `true` | Keep the spoken word visible (see below). Read once on mount |
 | `clickToSeek` | `true` | Clicking a word starts reading from it (after a short delay, so double-clicking still selects a word) |
+
+### Auto-scroll and "Back to current word"
+
+While a message is read aloud the page follows the highlighted word. As soon as the user scrolls
+(mouse wheel or trackpad, touch, PageUp/PageDown/Home/End/arrow keys/Space outside form controls
+and the toolbar, or dragging a scrollbar) following turns off; speech and highlighting continue.
+The toolbar then shows "↓ Back to current word", which turns following on again and scrolls the
+word into view. Following also turns on again when reading starts or the user clicks a word, but
+not on speed/voice changes or pause/resume. With `autoScroll: false` nothing scrolls and the
+button never appears.
+
+The hook result exposes this as `following` (boolean) and `followCurrentWord()`, for custom toolbars.
 
 Customise colours with `--dictation-highlight-bg`, `--dictation-highlight-fg` (text colour of the
 highlighted word) and `--dictation-accent`. The defaults follow `prefers-color-scheme`; if your app

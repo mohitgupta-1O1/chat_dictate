@@ -6,9 +6,15 @@ import { FakeEngine } from "./fake-engine";
 
 class FakeHighlighter implements Highlighter {
   shown: (Range | null)[] = [];
+  scrolls: boolean[] = [];
+  forced: Range[] = [];
   cleared = 0;
-  show(range: Range | null) {
+  show(range: Range | null, options?: { scroll?: boolean }) {
     this.shown.push(range);
+    this.scrolls.push(options?.scroll ?? true);
+  }
+  scrollIntoView(range: Range) {
+    this.forced.push(range);
   }
   clear() {
     this.cleared++;
@@ -237,5 +243,68 @@ describe("DictationController", () => {
     const { engine, controller } = setup();
     engine.voices = [{ id: "a", name: "A", lang: "en-US" }];
     expect(await controller.listVoices()).toEqual(engine.voices);
+  });
+
+  describe("following the current word", () => {
+    it("follows by default", async () => {
+      const { highlighter, controller, state } = setup();
+      expect(state().following).toBe(true);
+      await controller.play();
+      expect(highlighter.scrolls).toEqual([true]);
+    });
+
+    it("stays off across boundaries, speed changes and pause/resume, and tells the highlighter not to scroll", async () => {
+      const { engine, highlighter, controller, state } = setup();
+      await controller.play();
+      controller.setFollowing(false);
+      engine.emitBoundary(4);
+      await controller.setRate(2);
+      engine.emitBoundary(4);
+      controller.pause();
+      await controller.resume();
+      expect(state()).toMatchObject({ following: false, currentWordIndex: 2 });
+      expect(highlighter.scrolls.slice(1)).toEqual([false, false, false]);
+    });
+
+    it("stays off when a stalled engine is restarted", async () => {
+      vi.useFakeTimers();
+      const { controller, state } = setup(undefined, undefined, 1000);
+      await controller.play();
+      controller.setFollowing(false);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(state()).toMatchObject({ status: "playing", following: false });
+    });
+
+    it("turns back on when seeking to a word or a caret position", async () => {
+      const { container, highlighter, controller, state } = setup();
+      await controller.play();
+      controller.setFollowing(false);
+      await controller.seekToWord(2);
+      expect(state().following).toBe(true);
+      expect(highlighter.scrolls.at(-1)).toBe(true);
+      controller.setFollowing(false);
+      await controller.seekToPoint(container.querySelector("p")!.firstChild!, 15);
+      expect(state()).toMatchObject({ following: true, currentWordIndex: 3 });
+    });
+
+    it("turns back on when playback starts from idle", async () => {
+      const { highlighter, controller, state } = setup();
+      await controller.play();
+      controller.setFollowing(false);
+      controller.stop();
+      await controller.play();
+      expect(state().following).toBe(true);
+      expect(highlighter.scrolls.at(-1)).toBe(true);
+    });
+
+    it("followCurrentWord turns following on and scrolls to the current word now", async () => {
+      const { engine, highlighter, controller, state } = setup();
+      await controller.play();
+      engine.emitBoundary(8);
+      controller.setFollowing(false);
+      controller.followCurrentWord();
+      expect(state().following).toBe(true);
+      expect(highlighter.forced.map((range) => range.toString())).toEqual(["three"]);
+    });
   });
 });

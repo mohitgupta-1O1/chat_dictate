@@ -30,6 +30,8 @@ export interface UseDictationResult extends DictationSnapshot {
   setRate(rate: number): void;
   setVoice(voiceId: string | undefined): void;
   seekToWord(index: number): void;
+  /** Turns following back on and scrolls the current word into view. */
+  followCurrentWord(): void;
   listVoices(): Promise<VoiceInfo[]>;
 }
 
@@ -38,6 +40,12 @@ const INTERACTIVE =
   'a, button, input, textarea, select, summary, label, [role="button"], [contenteditable=""], [contenteditable="true"], [data-dictation="skip"]';
 
 const SKIP_REGION = '[data-dictation="skip"]';
+
+const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
+
+// Scroll keys pressed here operate the control instead of scrolling the page.
+const KEY_CONTROLS =
+  'input, textarea, select, button, [contenteditable=""], [contenteditable="true"], [role="toolbar"], [data-dictation="skip"]';
 
 // Long enough to tell a single click from the start of a double-click.
 const SEEK_DELAY_MS = 300;
@@ -57,6 +65,7 @@ export function useDictation(
     () => false,
   );
   const disabled = !supported || !isComplete;
+  const [followable] = useState(autoScroll); // read once on mount, like the highlighter
 
   const engineRef = useRef(engine);
   useEffect(() => {
@@ -136,6 +145,35 @@ export function useDictation(
     };
   }, [controller, ref, clickToSeek, disabled]);
 
+  const listenForUserScroll = followable && snapshot.status !== "idle";
+  useEffect(() => {
+    if (!listenForUserScroll) return;
+    // Judge intent from input, not `scroll` events: our own smooth scrolling fires those too.
+    const stopFollowing = () => controller.setFollowing(false);
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) stopFollowing(); // ctrl+wheel is pinch-zoom
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!SCROLL_KEYS.has(event.key)) return;
+      if (event.target instanceof Element && event.target.closest(KEY_CONTROLS)) return;
+      stopFollowing();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (isOnScrollbar(event)) stopFollowing();
+    };
+    const listeners = [
+      ["wheel", onWheel],
+      ["touchmove", stopFollowing],
+      ["keydown", onKeyDown],
+      ["pointerdown", onPointerDown],
+    ] as const;
+    const opts = { capture: true, passive: true };
+    for (const [type, listener] of listeners) window.addEventListener(type, listener as EventListener, opts);
+    return () => {
+      for (const [type, listener] of listeners) window.removeEventListener(type, listener as EventListener, opts);
+    };
+  }, [controller, listenForUserScroll]);
+
   const actions = useMemo(
     () => ({
       play: () => {
@@ -155,6 +193,7 @@ export function useDictation(
       seekToWord: (index: number) => {
         if (!disabled) void controller.seekToWord(index);
       },
+      followCurrentWord: () => controller.followCurrentWord(),
       listVoices: () => controller.listVoices(),
     }),
     [controller, disabled],
@@ -166,6 +205,23 @@ export function useDictation(
 function isInSkipRegion(node: Node): boolean {
   const element = node instanceof Element ? node : node.parentElement;
   return element?.closest(SKIP_REGION) != null;
+}
+
+/** True when the pointer went down on the scrollbar of the page or a scrollable element. */
+function isOnScrollbar(event: MouseEvent): boolean {
+  const target = event.target;
+  const element =
+    target instanceof Document ? target.documentElement : target instanceof Element ? target : null;
+  if (!element) return false;
+  if (element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth) return false;
+  if (element === document.documentElement) {
+    return event.clientX >= element.clientWidth || event.clientY >= element.clientHeight;
+  }
+  const rect = element.getBoundingClientRect();
+  return (
+    event.clientX >= rect.left + element.clientLeft + element.clientWidth ||
+    event.clientY >= rect.top + element.clientTop + element.clientHeight
+  );
 }
 
 function isSelectionCollapsed(): boolean {
