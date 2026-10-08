@@ -1,3 +1,4 @@
+import { DEFAULT_RATE } from "./constants";
 import type { SpeechEngine, Unsubscribe, VoiceInfo } from "./engines/types";
 import {
   extractWords,
@@ -61,6 +62,7 @@ export function stopActiveDictation(): void {
 /** Playback state for one message. Only one controller plays at a time app-wide. */
 export class DictationController {
   private snapshot: DictationSnapshot;
+  private readonly serverSnapshot: DictationSnapshot;
   private readonly options: DictationControllerOptions;
   private readonly listeners = new Set<() => void>();
   private extracted: ExtractedText | null = null;
@@ -89,6 +91,7 @@ export class DictationController {
       following: true,
       error: null,
     };
+    this.serverSnapshot = { ...this.snapshot, rate: DEFAULT_RATE, voiceId: undefined };
   }
 
   subscribe = (listener: () => void): Unsubscribe => {
@@ -100,6 +103,9 @@ export class DictationController {
   };
 
   getSnapshot = (): DictationSnapshot => this.snapshot;
+
+  /** Default speed and voice, so server markup and hydration ignore saved preferences. */
+  getServerSnapshot = (): DictationSnapshot => this.serverSnapshot;
 
   /** The message's toolbar; the mini-player shows itself when it is off-screen. */
   setToolbarElement(element: HTMLElement | null): void {

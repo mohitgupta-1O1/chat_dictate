@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useRef } from "react";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stopActiveDictation } from "../dictation-controller";
 import type { SpeechEngine } from "../engines/types";
+import { resetPreferencesForTests, setPreferences } from "../preferences";
 import { useDictation } from "../use-dictation";
 import { FakeEngine } from "./fake-engine";
 
@@ -95,12 +97,24 @@ afterEach(() => {
   stopActiveDictation();
   delete (document as { caretRangeFromPoint?: unknown }).caretRangeFromPoint;
   window.getSelection()?.removeAllRanges();
+  localStorage.clear();
+  resetPreferencesForTests();
 });
 
 describe("useDictation", () => {
   it("is unsupported without an engine or speechSynthesis", () => {
     render(<Message html="<p>hi</p>" />);
     expect(state()).toBe("false|true|idle|-1");
+  });
+
+  it("renders the default speed on the server even when another speed is saved", () => {
+    setPreferences({ rate: 1.5 });
+    function Rate() {
+      const ref = useRef<HTMLDivElement>(null);
+      const d = useDictation(ref, { engine: new FakeEngine() });
+      return <output>{`${d.rate}x`}</output>;
+    }
+    expect(renderToString(<Rate />)).toBe("<output>1x</output>");
   });
 
   it("reads the message aloud", async () => {

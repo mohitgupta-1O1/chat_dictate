@@ -25,7 +25,7 @@ function MiniPlayer({ controller, className }: { controller: DictationController
   const { status, rate, following } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
-    controller.getSnapshot,
+    controller.getServerSnapshot,
   );
   const toolbar = useSyncExternalStore(controller.subscribeToolbarElement, controller.getToolbarElement, noToolbar);
   const toolbarVisible = useToolbarVisible(toolbar);

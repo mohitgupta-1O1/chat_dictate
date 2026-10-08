@@ -85,7 +85,7 @@ export function useDictation(
         createHighlighter: () => createHighlighter({ autoScroll }),
       }),
   );
-  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getServerSnapshot);
 
   useEffect(() => {
     const container = ref.current;
