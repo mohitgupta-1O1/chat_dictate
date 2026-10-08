@@ -5,6 +5,7 @@ export {
   getActiveDictation,
   stopActiveDictation,
   subscribeActiveDictation,
+  type DictationController,
   type DictationSnapshot,
   type DictationStatus,
 } from "./dictation-controller";

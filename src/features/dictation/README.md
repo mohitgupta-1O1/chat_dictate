@@ -30,7 +30,7 @@ Works with any renderer (react-markdown, Markdoc, plain HTML) because it reads t
    }
    ```
 
-4. Mount `<DictationMiniPlayer />` once (e.g. in `app/layout.tsx` or your chat page). It appears while a message is being read and that message's toolbar is off-screen. Lift it above a chat input with `--dictation-mini-offset` (default `1rem`).
+4. Mount `<DictationMiniPlayer />` once (e.g. in `app/layout.tsx` or your chat page). It appears while a message is being read and that message's toolbar is off-screen. Lift it above a chat input with `--dictation-mini-offset` (default `1rem`). For your own mini-player, `getActiveDictation()` and `subscribeActiveDictation(listener)` give the `DictationController` (type exported) of the message being read; pass them to `useSyncExternalStore` and call its `pause`, `resume`, `skipSentence`, `setRate` or `stop`.
 
 The ref must wrap only the message body. Any content change inside it stops playback (the words
 are re-read on the next play), and everything inside it is read aloud. If dynamic UI has to live
@@ -65,8 +65,9 @@ blocked storage falls back to 1x and the default voice. Use `getPreferences`, `s
 
 The current sentence gets a faint highlight (`::highlight(dictation-sentence)`, colour
 `--dictation-sentence-bg`). ⏮ restarts the current sentence, or goes to the previous one when you
-are within its first words. ⏭ goes to the next. Paused stays paused. Keyboard ← / → (Esc stops)
-work in the toolbar and mini-player.
+are within its first 2 words. ⏭ goes to the next. Paused stays paused. Keyboard ← / → (Esc stops)
+work in the toolbar and mini-player. ← / → are ignored while the voice picker (or another input)
+has focus or the voice is loading, and all three are ignored while a modifier key is held.
 
 ## Options
 
@@ -91,14 +92,15 @@ button never appears.
 The hook result exposes this as `following` (boolean), `followCurrentWord()`, and `toolbarRef`
 (attach to the toolbar root so the mini-player knows when it is off-screen), for custom toolbars.
 
-### Customise colours
+## Customise colours
 
 Customise colours with `--dictation-highlight-bg`, `--dictation-highlight-fg` (text colour of the
-highlighted word), `--dictation-accent`, `--dictation-sentence-bg` (sentence highlight), 
-`--dictation-mini-bg`, `--dictation-mini-fg` (mini-player background and text), and 
-`--dictation-mini-offset` (mini-player distance from bottom, default `1rem`). The defaults follow 
-`prefers-color-scheme`; if your app switches themes with a class, override them there 
-(`:root.dark` outranks the defaults whatever the stylesheet order; set the light values on 
+highlighted word), `--dictation-accent`, `--dictation-sentence-bg` (sentence highlight),
+`--dictation-mini-bg`, `--dictation-mini-fg` (mini-player background and text; the pill inverts the
+theme, dark on light pages and light in dark mode), and
+`--dictation-mini-offset` (mini-player distance from bottom, default `1rem`). The defaults follow
+`prefers-color-scheme`; if your app switches themes with a class, override them there
+(`:root.dark` outranks the defaults whatever the stylesheet order; set the light values on
 `:root:not(.dark)` too if the OS can be dark while your app is light):
 
 ```css
