@@ -47,7 +47,8 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const action = active ? toolbarKeyAction(event) : null;
-    if (!action) return;
+    // ⏮ ⏭ are disabled while the voice loads.
+    if (!action || (action !== "stop" && status === "loading")) return;
     event.preventDefault();
     if (action === "stop") dictation.stop();
     else dictation.skipSentence(action === "next" ? 1 : -1);

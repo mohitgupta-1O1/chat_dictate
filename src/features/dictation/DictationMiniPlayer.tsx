@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { RATES } from "./constants";
 import { getActiveDictation, subscribeActiveDictation, type DictationController } from "./dictation-controller";
 import { toolbarKeyAction } from "./toolbar-keys";
@@ -12,13 +12,27 @@ export interface DictationMiniPlayerProps {
 const noActiveDictation = () => null;
 const noToolbar = () => null;
 
+// Remounts the pill per message so one message's visibility never carries over to the next.
+const controllerIds = new WeakMap<DictationController, number>();
+let nextControllerId = 0;
+function controllerKey(controller: DictationController): number {
+  let id = controllerIds.get(controller);
+  if (id === undefined) {
+    id = ++nextControllerId;
+    controllerIds.set(controller, id);
+  }
+  return id;
+}
+
 /**
  * Floating controls for the message being read, shown while its own toolbar is off-screen.
  * Mount once, e.g. in the root layout.
  */
 export function DictationMiniPlayer({ className }: DictationMiniPlayerProps) {
   const controller = useSyncExternalStore(subscribeActiveDictation, getActiveDictation, noActiveDictation);
-  return controller ? <MiniPlayer controller={controller} className={className} /> : null;
+  return controller ? (
+    <MiniPlayer key={controllerKey(controller)} controller={controller} className={className} />
+  ) : null;
 }
 
 function MiniPlayer({ controller, className }: { controller: DictationController; className?: string }) {
@@ -29,15 +43,35 @@ function MiniPlayer({ controller, className }: { controller: DictationController
   );
   const toolbar = useSyncExternalStore(controller.subscribeToolbarElement, controller.getToolbarElement, noToolbar);
   const toolbarVisible = useToolbarVisible(toolbar);
+  const visible = status !== "idle" && !toolbarVisible;
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Hand focus back to the message toolbar instead of losing it when the pill goes away.
+  const hadFocus = useRef(false);
+  useLayoutEffect(() => {
+    const focusToolbar = () => controller.getToolbarElement()?.querySelector("button")?.focus();
+    if (!visible) {
+      // React restores the pre-commit focus after cleanups run, so move it again once hidden.
+      if (hadFocus.current) focusToolbar();
+      hadFocus.current = false;
+      return;
+    }
+    const pill = ref.current;
+    return () => {
+      hadFocus.current = pill?.contains(document.activeElement) ?? false;
+      if (hadFocus.current) focusToolbar(); // unmounting: no later effect will
+    };
+  }, [visible, controller]);
+
   if (status === "idle") return null;
 
-  const visible = !toolbarVisible;
   const loading = status === "loading";
   const nextRate = RATES[(RATES.indexOf(rate as (typeof RATES)[number]) + 1) % RATES.length];
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const action = toolbarKeyAction(event);
-    if (!action) return;
+    // ⏮ ⏭ are disabled while the voice loads.
+    if (!action || (action !== "stop" && loading)) return;
     event.preventDefault();
     if (action === "stop") controller.stop();
     else void controller.skipSentence(action === "next" ? 1 : -1);
@@ -45,6 +79,7 @@ function MiniPlayer({ controller, className }: { controller: DictationController
 
   return (
     <div
+      ref={ref}
       role="toolbar"
       aria-label="Reading controls"
       data-dictation="skip"

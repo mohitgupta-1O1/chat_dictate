@@ -114,6 +114,14 @@ describe("DictationToolbar", () => {
     expect(d.stop).toHaveBeenCalled();
   });
 
+  it("ignores arrow keys while the voice is loading", () => {
+    const d = fakeDictation({ status: "loading" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.keyDown(screen.getByRole("toolbar"), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("toolbar"), { key: "ArrowLeft" });
+    expect(d.skipSentence).not.toHaveBeenCalled();
+  });
+
   it("shows errors", () => {
     render(<DictationToolbar dictation={fakeDictation({ error: "boom" })} />);
     expect(screen.getByRole("alert").textContent).toBe("boom");
