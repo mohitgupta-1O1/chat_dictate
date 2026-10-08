@@ -1,0 +1,105 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createHighlighter } from "../highlighter";
+
+class FakeHighlight {
+  ranges: Range[];
+  constructor(...ranges: Range[]) {
+    this.ranges = ranges;
+  }
+}
+
+function stubHighlightApi() {
+  const registry = new Map<string, FakeHighlight>();
+  vi.stubGlobal("CSS", { highlights: registry });
+  vi.stubGlobal("Highlight", FakeHighlight);
+  return registry;
+}
+
+function wordRange(text = "hello world"): Range {
+  const p = document.createElement("p");
+  p.textContent = text;
+  document.body.appendChild(p);
+  const range = document.createRange();
+  range.setStart(p.firstChild!, 0);
+  range.setEnd(p.firstChild!, 5);
+  return range;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+});
+
+describe("with the CSS Custom Highlight API", () => {
+  it("registers the range under dictation-word", () => {
+    const registry = stubHighlightApi();
+    const range = wordRange();
+    createHighlighter({ autoScroll: false }).show(range);
+    expect(registry.get("dictation-word")?.ranges).toEqual([range]);
+  });
+
+  it("clear removes only its own highlight", () => {
+    const registry = stubHighlightApi();
+    const a = createHighlighter({ autoScroll: false });
+    const b = createHighlighter({ autoScroll: false });
+    a.show(wordRange());
+    b.show(wordRange());
+    a.clear();
+    expect(registry.has("dictation-word")).toBe(true);
+    b.clear();
+    expect(registry.has("dictation-word")).toBe(false);
+  });
+
+  it("show(null) clears the highlight", () => {
+    const registry = stubHighlightApi();
+    const h = createHighlighter({ autoScroll: false });
+    h.show(wordRange());
+    h.show(null);
+    expect(registry.has("dictation-word")).toBe(false);
+  });
+});
+
+describe("overlay fallback", () => {
+  it("draws one box per client rect and removes them on clear", () => {
+    const range = wordRange();
+    Object.assign(range, {
+      getClientRects: () => [
+        { left: 10, top: 20, width: 30, height: 12 },
+        { left: 0, top: 40, width: 15, height: 12 },
+      ],
+    });
+    const h = createHighlighter({ autoScroll: false });
+    h.show(range);
+    const boxes = document.querySelectorAll<HTMLElement>(".dictation-overlay-box");
+    expect(boxes).toHaveLength(2);
+    expect(boxes[0].style.left).toBe("10px");
+    expect(boxes[0].style.top).toBe("20px");
+    h.clear();
+    expect(document.querySelectorAll(".dictation-overlay-box")).toHaveLength(0);
+  });
+});
+
+describe("auto-scroll", () => {
+  function rangeAt(top: number): Range {
+    const range = wordRange();
+    Object.assign(range, {
+      getBoundingClientRect: () => ({ top, bottom: top + 12, left: 0, right: 10, width: 10, height: 12 }),
+    });
+    return range;
+  }
+
+  it("scrolls the window when the word is below the viewport", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    createHighlighter().show(rangeAt(2000));
+    expect(scrollBy).toHaveBeenCalledWith({ top: 2000 - window.innerHeight / 3, behavior: "smooth" });
+  });
+
+  it("does not scroll when the word is visible or auto-scroll is off", () => {
+    stubHighlightApi();
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    createHighlighter().show(rangeAt(100));
+    createHighlighter({ autoScroll: false }).show(rangeAt(2000));
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+});
