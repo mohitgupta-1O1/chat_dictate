@@ -33,6 +33,25 @@ export interface DictationControllerOptions {
 }
 
 let activeController: DictationController | null = null;
+const activeListeners = new Set<() => void>();
+
+function setActiveController(controller: DictationController | null): void {
+  if (activeController === controller) return;
+  activeController = controller;
+  activeListeners.forEach((listener) => listener());
+}
+
+/** The message currently being read (playing, paused or loading), if any. */
+export function getActiveDictation(): DictationController | null {
+  return activeController;
+}
+
+export function subscribeActiveDictation(listener: () => void): Unsubscribe {
+  activeListeners.add(listener);
+  return () => {
+    activeListeners.delete(listener);
+  };
+}
 
 /** Stops whichever message is currently being read aloud. */
 export function stopActiveDictation(): void {
@@ -56,6 +75,7 @@ export class DictationController {
   private currentSentence = -1;
   private preferencesUnsub: Unsubscribe | null = null;
   private preferenceRestart: Promise<void> = Promise.resolve();
+  private toolbarElement: HTMLElement | null = null;
 
   constructor(options: DictationControllerOptions) {
     this.options = options;
@@ -79,6 +99,15 @@ export class DictationController {
   };
 
   getSnapshot = (): DictationSnapshot => this.snapshot;
+
+  /** The message's toolbar; the mini-player shows itself when it is off-screen. */
+  setToolbarElement(element: HTMLElement | null): void {
+    this.toolbarElement = element;
+  }
+
+  getToolbarElement(): HTMLElement | null {
+    return this.toolbarElement;
+  }
 
   async play(): Promise<void> {
     const { status, currentWordIndex } = this.snapshot;
@@ -275,7 +304,7 @@ export class DictationController {
   private acquire(engine: SpeechEngine): void {
     if (activeController !== this) {
       activeController?.stop();
-      activeController = this;
+      setActiveController(this);
     }
     if (this.engine !== engine) this.unsubscribeEngine();
     this.engine = engine;
@@ -290,7 +319,7 @@ export class DictationController {
 
   private release(): void {
     this.unsubscribeEngine();
-    if (activeController === this) activeController = null;
+    if (activeController === this) setActiveController(null);
   }
 
   private unsubscribeEngine(): void {

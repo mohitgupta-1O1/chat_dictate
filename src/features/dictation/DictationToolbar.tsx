@@ -55,6 +55,7 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
 
   return (
     <div
+      ref={dictation.toolbarRef}
       role="toolbar"
       aria-label="Read aloud"
       data-dictation="skip"

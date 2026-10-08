@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DictationController, stopActiveDictation } from "../dictation-controller";
+import {
+  DictationController,
+  getActiveDictation,
+  stopActiveDictation,
+  subscribeActiveDictation,
+} from "../dictation-controller";
 import type { VoiceInfo } from "../engines/types";
 import type { Highlighter } from "../highlighter";
 import { getPreferences, resetPreferencesForTests } from "../preferences";
@@ -440,5 +445,28 @@ describe("DictationController", () => {
     controller.stop();
     await controller.play();
     expect(highlighter.sentences.map((r) => r?.toString())).toEqual(["One two.", "One two."]);
+  });
+  it("publishes the playing controller", async () => {
+    const a = setup();
+    const b = setup("<p>other words</p>", a.engine);
+    const listener = vi.fn();
+    const unsubscribe = subscribeActiveDictation(listener);
+    await a.controller.play();
+    expect(getActiveDictation()).toBe(a.controller);
+    await b.controller.play();
+    expect(getActiveDictation()).toBe(b.controller);
+    b.controller.stop();
+    expect(getActiveDictation()).toBeNull();
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("remembers its toolbar element", () => {
+    const { controller } = setup();
+    const el = document.createElement("div");
+    controller.setToolbarElement(el);
+    expect(controller.getToolbarElement()).toBe(el);
+    controller.setToolbarElement(null);
+    expect(controller.getToolbarElement()).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ function fakeDictation(overrides: Partial<UseDictationResult> = {}): UseDictatio
     seekToWord: vi.fn(),
     followCurrentWord: vi.fn(),
     skipSentence: vi.fn(),
+    toolbarRef: vi.fn(),
     listVoices: vi.fn(async () => [{ id: "v1", name: "Samantha", lang: "en-US" }]),
     ...overrides,
   };
@@ -176,5 +177,10 @@ describe("DictationToolbar", () => {
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Voice" }), { key: "ArrowRight" });
     expect(d.skipSentence).not.toHaveBeenCalled();
     await screen.findByRole("option", { name: "Samantha (en-US)" });
+  });
+  it("registers its root element for the mini-player", () => {
+    const d = fakeDictation();
+    render(<DictationToolbar dictation={d} />);
+    expect(d.toolbarRef).toHaveBeenCalledWith(screen.getByRole("toolbar"));
   });
 });

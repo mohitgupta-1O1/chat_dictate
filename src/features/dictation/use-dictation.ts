@@ -35,6 +35,8 @@ export interface UseDictationResult extends DictationSnapshot {
   /** Jumps a sentence back (-1) or forward (1) while reading or paused. */
   skipSentence(direction: -1 | 1): void;
   listVoices(): Promise<VoiceInfo[]>;
+  /** Attach to the toolbar root so the mini-player knows when it is off-screen. */
+  toolbarRef: (element: HTMLElement | null) => void;
 }
 
 // Clicks on these keep their normal behaviour instead of seeking.
@@ -200,6 +202,7 @@ export function useDictation(
         void controller.skipSentence(direction);
       },
       listVoices: () => controller.listVoices(),
+      toolbarRef: (element: HTMLElement | null) => controller.setToolbarElement(element),
     }),
     [controller, disabled],
   );
