@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useRef } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stopActiveDictation } from "../dictation-controller";
 import type { SpeechEngine } from "../engines/types";
 import { useDictation } from "../use-dictation";
@@ -40,7 +40,21 @@ function mockCaret(node: Node, offset: number) {
   });
 }
 
+// Clicks seek after a short delay so double-clicks can select words instead.
+async function flushSeekDelay() {
+  await act(async () => {
+    vi.advanceTimersByTime(300);
+  });
+}
+
+async function click(target: Element, detail = 1) {
+  await act(async () => {
+    fireEvent.click(target, { detail });
+  });
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   stopActiveDictation();
   delete (document as { caretRangeFromPoint?: unknown }).caretRangeFromPoint;
@@ -98,15 +112,41 @@ describe("useDictation", () => {
   });
 
   describe("click to seek", () => {
-    it("starts reading from the clicked word", async () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    });
+
+    it("starts reading from the clicked word after a short delay", async () => {
       const engine = new FakeEngine();
       render(<Message html="<p>hello brave world</p>" engine={engine} />);
       const p = content().querySelector("p")!;
       mockCaret(p.firstChild!, 7);
-      await act(async () => {
-        fireEvent.click(p);
-      });
+      await click(p);
+      expect(engine.spoken).toHaveLength(0);
+      await flushSeekDelay();
       expect(engine.lastSpoken?.text).toBe("brave world.");
+    });
+
+    it("does not start reading on a double-click that selects a word", async () => {
+      const engine = new FakeEngine();
+      render(<Message html="<p>hello brave world</p>" engine={engine} />);
+      const p = content().querySelector("p")!;
+      mockCaret(p.firstChild!, 7);
+      await click(p, 1);
+      await click(p, 2);
+      await flushSeekDelay();
+      expect(engine.spoken).toHaveLength(0);
+    });
+
+    it("does not start reading if a selection was made before the delay ends", async () => {
+      const engine = new FakeEngine();
+      render(<Message html="<p>hello brave world</p>" engine={engine} />);
+      const p = content().querySelector("p")!;
+      mockCaret(p.firstChild!, 7);
+      await click(p);
+      window.getSelection()!.selectAllChildren(p);
+      await flushSeekDelay();
+      expect(engine.spoken).toHaveLength(0);
     });
 
     it("ignores clicks that end a text selection", async () => {
@@ -115,9 +155,8 @@ describe("useDictation", () => {
       const p = content().querySelector("p")!;
       window.getSelection()!.selectAllChildren(p);
       mockCaret(p.firstChild!, 7);
-      await act(async () => {
-        fireEvent.click(p);
-      });
+      await click(p);
+      await flushSeekDelay();
       expect(engine.spoken).toHaveLength(0);
     });
 
@@ -126,9 +165,8 @@ describe("useDictation", () => {
       render(<Message html='<p>go <a href="#x">here</a> now</p>' engine={engine} />);
       const link = content().querySelector("a")!;
       mockCaret(link.firstChild!, 1);
-      await act(async () => {
-        fireEvent.click(link);
-      });
+      await click(link);
+      await flushSeekDelay();
       expect(engine.spoken).toHaveLength(0);
     });
 
@@ -137,9 +175,8 @@ describe("useDictation", () => {
       render(<Message html="<p>hello brave world</p>" engine={engine} isComplete={false} />);
       const p = content().querySelector("p")!;
       mockCaret(p.firstChild!, 7);
-      await act(async () => {
-        fireEvent.click(p);
-      });
+      await click(p);
+      await flushSeekDelay();
       expect(engine.spoken).toHaveLength(0);
     });
   });

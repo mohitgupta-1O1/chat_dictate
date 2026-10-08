@@ -37,6 +37,9 @@ export interface UseDictationResult extends DictationSnapshot {
 const INTERACTIVE =
   'a, button, input, textarea, select, summary, label, [role="button"], [contenteditable=""], [contenteditable="true"], [data-dictation="skip"]';
 
+// Long enough to tell a single click from the start of a double-click.
+const SEEK_DELAY_MS = 300;
+
 const noopSubscribe = () => () => {};
 
 export function useDictation(
@@ -94,16 +97,36 @@ export function useDictation(
   useEffect(() => {
     const container = ref.current;
     if (!container || !clickToSeek || disabled) return;
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const cancelPending = () => {
+      if (pending) clearTimeout(pending);
+      pending = null;
+    };
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.detail > 1) cancelPending();
+    };
     const onClick = (event: MouseEvent) => {
+      cancelPending();
+      // Double/triple clicks select text; they must not start speech.
+      if (event.detail > 1) return;
       if (event.button !== 0 || event.defaultPrevented) return;
-      const selection = window.getSelection();
-      if (selection && !selection.isCollapsed) return;
+      if (!isSelectionCollapsed()) return;
       if (event.target instanceof Element && event.target.closest(INTERACTIVE)) return;
       const caret = caretFromPoint(event.clientX, event.clientY);
-      if (caret && container.contains(caret.node)) void controller.seekToPoint(caret.node, caret.offset);
+      if (!caret || !container.contains(caret.node)) return;
+      // Wait to see whether this click becomes a double-click.
+      pending = setTimeout(() => {
+        pending = null;
+        if (isSelectionCollapsed()) void controller.seekToPoint(caret.node, caret.offset);
+      }, SEEK_DELAY_MS);
     };
+    container.addEventListener("mousedown", onMouseDown);
     container.addEventListener("click", onClick);
-    return () => container.removeEventListener("click", onClick);
+    return () => {
+      cancelPending();
+      container.removeEventListener("mousedown", onMouseDown);
+      container.removeEventListener("click", onClick);
+    };
   }, [controller, ref, clickToSeek, disabled]);
 
   const actions = useMemo(
@@ -131,6 +154,11 @@ export function useDictation(
   );
 
   return useMemo(() => ({ ...snapshot, supported, disabled, ...actions }), [snapshot, supported, disabled, actions]);
+}
+
+function isSelectionCollapsed(): boolean {
+  const selection = window.getSelection();
+  return !selection || selection.isCollapsed;
 }
 
 function caretFromPoint(x: number, y: number): { node: Node; offset: number } | null {

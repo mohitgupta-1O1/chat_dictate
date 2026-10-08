@@ -55,7 +55,7 @@ useDictation(ref, { extractOptions: { skip: `${DEFAULT_SKIP}, .my-citation` } })
 | `engine` | browser Web Speech | Any `SpeechEngine` implementation |
 | `extractOptions` | see above | `{ replace, skip }` |
 | `autoScroll` | `true` | Keep the spoken word visible |
-| `clickToSeek` | `true` | Clicking a word starts reading from it |
+| `clickToSeek` | `true` | Clicking a word starts reading from it (after a short delay, so double-clicking still selects a word) |
 
 Customise colours with `--dictation-highlight-bg` and `--dictation-accent`.
 
