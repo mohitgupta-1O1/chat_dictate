@@ -162,6 +162,22 @@ describe("WebSpeechEngine", () => {
     expect(synth.queue.every((u) => u.rate === 1.5 && u.voice?.name === "Samantha")).toBe(true);
   });
 
+  it("uses shorter chunks at slow rates so each stays under Chrome's cutoff", () => {
+    const { synth, engine } = setup();
+    const text = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
+    engine.speak(text, { rate: 0.5 });
+    expect(synth.queue.length).toBeGreaterThan(1);
+    expect(synth.queue.every((u) => u.text.length <= 100)).toBe(true);
+    expect(synth.queue.map((u) => u.text).join("")).toBe(text);
+  });
+
+  it("keeps full-length chunks at normal and fast rates", () => {
+    const { synth, engine } = setup();
+    const text = Array.from({ length: 80 }, (_, i) => `word${i}`).join(" ");
+    engine.speak(text, { rate: 2 });
+    expect(Math.max(...synth.queue.map((u) => u.text.length))).toBeGreaterThan(100);
+  });
+
   it("uses the requested voice id", () => {
     const { synth, engine } = setup();
     synth.voices = [voice({ name: "Samantha", localService: true, default: true }), voice({ name: "Daniel", lang: "en-GB" })];

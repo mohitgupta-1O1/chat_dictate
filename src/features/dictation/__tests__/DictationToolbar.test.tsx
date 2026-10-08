@@ -40,21 +40,21 @@ describe("DictationToolbar", () => {
   it("starts reading from the Dictate button", () => {
     const d = fakeDictation();
     render(<DictationToolbar dictation={d} />);
-    fireEvent.click(screen.getByRole("button", { name: "Read this response aloud" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dictate: read this response aloud" }));
     expect(d.play).toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Stop reading" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
   });
 
   it("disables Dictate while the response is incomplete", () => {
     render(<DictationToolbar dictation={fakeDictation({ disabled: true })} />);
-    expect(screen.getByRole("button", { name: "Read this response aloud" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Dictate: read this response aloud" })).toBeDisabled();
   });
 
   it("shows Pause and Stop while playing", () => {
     const d = fakeDictation({ status: "playing" });
     render(<DictationToolbar dictation={d} />);
-    fireEvent.click(screen.getByRole("button", { name: "Pause reading" }));
-    fireEvent.click(screen.getByRole("button", { name: "Stop reading" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
     expect(d.pause).toHaveBeenCalled();
     expect(d.stop).toHaveBeenCalled();
     expect(screen.getByText("Reading aloud")).toBeTruthy();
@@ -63,8 +63,32 @@ describe("DictationToolbar", () => {
   it("shows Resume while paused", () => {
     const d = fakeDictation({ status: "paused" });
     render(<DictationToolbar dictation={d} />);
-    fireEvent.click(screen.getByRole("button", { name: "Resume reading" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     expect(d.resume).toHaveBeenCalled();
+  });
+
+  it("gives every button an accessible name that starts with its visible text", () => {
+    for (const status of ["idle", "loading", "playing", "paused"] as const) {
+      const { unmount } = render(<DictationToolbar dictation={fakeDictation({ status })} />);
+      for (const button of screen.getAllByRole("button")) {
+        const visible = button.textContent!.replace(/[▶❚■…]/g, "").trim();
+        const name = button.getAttribute("aria-label") ?? visible;
+        expect(name.startsWith(visible)).toBe(true);
+      }
+      unmount();
+    }
+  });
+
+  it("announces Stopped when reading ends, and nothing initially", () => {
+    const live = () => document.querySelector('[aria-live="polite"]')!.textContent;
+    const { rerender } = render(<DictationToolbar dictation={fakeDictation()} />);
+    expect(live()).toBe("");
+    rerender(<DictationToolbar dictation={fakeDictation({ status: "playing" })} />);
+    expect(live()).toBe("Reading aloud");
+    rerender(<DictationToolbar dictation={fakeDictation({ status: "idle" })} />);
+    expect(live()).toBe("Stopped");
+    rerender(<DictationToolbar dictation={fakeDictation({ status: "paused" })} />);
+    expect(live()).toBe("Paused");
   });
 
   it("offers exactly the four speeds and marks the current one", () => {

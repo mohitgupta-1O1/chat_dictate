@@ -195,7 +195,9 @@ export class WebSpeechEngine implements SpeechEngine {
     this.cancel();
     const session = this.session;
     const live = () => session === this.session;
-    const chunks = splitIntoChunks(text, this.maxChunkLength);
+    // Slow speech takes longer per character; shorten chunks to stay under Chrome's ~15 s cutoff.
+    const chunkLength = Math.max(60, Math.round(this.maxChunkLength * Math.min(1, rate)));
+    const chunks = splitIntoChunks(text, chunkLength);
     if (chunks.length === 0) {
       queueMicrotask(() => {
         if (live()) this.endListeners.forEach((cb) => cb());

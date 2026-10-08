@@ -75,6 +75,12 @@ describe("extractWords", () => {
     expect(r.text).toBe("Fact here now.");
   });
 
+  it("skips hidden and screen-reader-only content", () => {
+    expect(extractWords(mount('<p>a <span class="sr-only">b</span> c</p>')).text).toBe("a c.");
+    expect(extractWords(mount('<p>a <span class="visually-hidden">b</span> c</p>')).text).toBe("a c.");
+    expect(extractWords(mount("<p>a <span hidden>b</span> c</p>")).text).toBe("a c.");
+  });
+
   it("gives every ranged word a DOM range covering exactly its text", () => {
     const r = extractWords(mount("<h1>Title</h1><p>Some <strong>bold</strong> text, <em>ok</em>?</p><ul><li>a b</li></ul>"));
     for (const w of r.words) {

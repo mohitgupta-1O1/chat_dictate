@@ -42,7 +42,7 @@ inside `[data-dictation="skip"]` don't stop playback.
 |---|---|
 | `pre` (code blocks) | Spoken as "code block" |
 | `.katex`, `.katex-display` | Spoken as "equation" |
-| `script`, `style`, `template`, `[data-citation]`, `sup.citation`, `[aria-hidden="true"]`, `[data-dictation="skip"]` | Skipped |
+| `script`, `style`, `template`, `[data-citation]`, `sup.citation`, `[aria-hidden="true"]`, `[hidden]`, `.sr-only`, `.visually-hidden`, `[data-dictation="skip"]` | Skipped |
 | Everything else | Read as rendered; headings, list items and table rows end with a pause |
 
 If your citation component renders differently, pass your own selectors:
@@ -57,13 +57,26 @@ useDictation(ref, { extractOptions: { skip: `${DEFAULT_SKIP}, .my-citation` } })
 
 | Option | Default | Meaning |
 |---|---|---|
-| `isComplete` | `true` | Keep the toolbar disabled while the response streams |
+| `isComplete` | `true` | Keep the toolbar disabled while the response streams. Switching it to `false` also stops any speech |
 | `engine` | browser Web Speech | Any `SpeechEngine` implementation |
-| `extractOptions` | see above | `{ replace, skip }` |
-| `autoScroll` | `true` | Keep the spoken word visible |
+| `extractOptions` | see above | `{ replace, skip }`. Read once on mount |
+| `autoScroll` | `true` | Keep the spoken word visible. Read once on mount |
 | `clickToSeek` | `true` | Clicking a word starts reading from it (after a short delay, so double-clicking still selects a word) |
 
-Customise colours with `--dictation-highlight-bg` and `--dictation-accent`.
+Customise colours with `--dictation-highlight-bg`, `--dictation-highlight-fg` (text colour of the
+highlighted word) and `--dictation-accent`. The defaults follow `prefers-color-scheme`; if your app
+switches themes with a class, override them there (`:root.dark` outranks the defaults whatever the
+stylesheet order; set the light values on `:root:not(.dark)` too if the OS can be dark while your
+app is light):
+
+```css
+:root.dark,
+.dark {
+  --dictation-highlight-bg: #854d0e;
+  --dictation-highlight-fg: #fef3c7;
+  --dictation-accent: #60a5fa;
+}
+```
 
 ## Adding a cloud voice later
 

@@ -1,17 +1,20 @@
 :root {
   --dictation-highlight-bg: #fde68a;
+  --dictation-highlight-fg: #1f2937;
   --dictation-accent: #2563eb;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --dictation-highlight-bg: #854d0e;
+    --dictation-highlight-fg: #fef3c7;
     --dictation-accent: #60a5fa;
   }
 }
 
 ::highlight(dictation-word) {
   background-color: var(--dictation-highlight-bg);
+  color: var(--dictation-highlight-fg);
 }
 
 .dictation-overlay-box {

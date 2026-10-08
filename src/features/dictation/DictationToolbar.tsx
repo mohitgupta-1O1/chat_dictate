@@ -21,18 +21,28 @@ const STATUS_TEXT: Record<DictationStatus, string> = {
 };
 
 export function DictationToolbar({ dictation, showVoicePicker = false, className }: DictationToolbarProps) {
-  if (!dictation.supported) return null;
   const { status, rate, error, disabled } = dictation;
   const active = status !== "idle";
 
+  // Announce "Stopped" when reading ends; idle alone says nothing (e.g. on first render).
+  const [prevStatus, setPrevStatus] = useState(status);
+  const [stopped, setStopped] = useState(false);
+  if (status !== prevStatus) {
+    setPrevStatus(status);
+    setStopped(!active);
+  }
+
+  if (!dictation.supported) return null;
+
+  // Accessible names start with the visible text (WCAG 2.5.3).
   const primary =
     status === "playing"
-      ? { icon: "❚❚", label: "Pause", aria: "Pause reading", onClick: dictation.pause }
+      ? { icon: "❚❚", label: "Pause", aria: undefined, onClick: dictation.pause }
       : status === "paused"
-        ? { icon: "▶", label: "Resume", aria: "Resume reading", onClick: dictation.resume }
+        ? { icon: "▶", label: "Resume", aria: undefined, onClick: dictation.resume }
         : status === "loading"
           ? { icon: "…", label: "Loading", aria: "Loading voice", onClick: undefined }
-          : { icon: "▶", label: "Dictate", aria: "Read this response aloud", onClick: dictation.play };
+          : { icon: "▶", label: "Dictate", aria: "Dictate: read this response aloud", onClick: dictation.play };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape" && active) {
@@ -60,7 +70,7 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
         <span aria-hidden="true">{primary.icon}</span> {primary.label}
       </button>
       {active && (
-        <button type="button" className="dictation-btn" aria-label="Stop reading" onClick={dictation.stop}>
+        <button type="button" className="dictation-btn" onClick={dictation.stop}>
           <span aria-hidden="true">■</span> Stop
         </button>
       )}
@@ -79,7 +89,7 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
       </div>
       {showVoicePicker && <VoicePicker dictation={dictation} />}
       <span className="dictation-sr-only" aria-live="polite">
-        {STATUS_TEXT[status]}
+        {stopped ? "Stopped" : STATUS_TEXT[status]}
       </span>
       {error && (
         <span className="dictation-error" role="alert">
