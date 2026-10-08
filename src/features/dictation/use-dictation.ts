@@ -37,6 +37,8 @@ export interface UseDictationResult extends DictationSnapshot {
 const INTERACTIVE =
   'a, button, input, textarea, select, summary, label, [role="button"], [contenteditable=""], [contenteditable="true"], [data-dictation="skip"]';
 
+const SKIP_REGION = '[data-dictation="skip"]';
+
 // Long enough to tell a single click from the start of a double-click.
 const SEEK_DELAY_MS = 300;
 
@@ -75,7 +77,10 @@ export function useDictation(
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
-    const observer = new MutationObserver(() => controller.invalidate());
+    const observer = new MutationObserver((records) => {
+      // UI marked data-dictation="skip" (e.g. our toolbar, copy buttons) may change freely.
+      if (records.some((record) => !isInSkipRegion(record.target))) controller.invalidate();
+    });
     observer.observe(container, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, [controller, ref]);
@@ -154,6 +159,11 @@ export function useDictation(
   );
 
   return useMemo(() => ({ ...snapshot, supported, disabled, ...actions }), [snapshot, supported, disabled, actions]);
+}
+
+function isInSkipRegion(node: Node): boolean {
+  const element = node instanceof Element ? node : node.parentElement;
+  return element?.closest(SKIP_REGION) != null;
 }
 
 function isSelectionCollapsed(): boolean {

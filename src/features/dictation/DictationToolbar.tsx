@@ -45,6 +45,7 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
     <div
       role="toolbar"
       aria-label="Read aloud"
+      data-dictation="skip"
       className={["dictation-toolbar", className].filter(Boolean).join(" ")}
       onKeyDown={onKeyDown}
     >

@@ -93,6 +93,34 @@ describe("useDictation", () => {
     expect(engine.lastSpoken?.text).toBe("second version.");
   });
 
+  it("keeps playing when UI marked data-dictation=skip inside the container changes", async () => {
+    const engine = new FakeEngine();
+    render(
+      <Message html='<p>hello brave world</p><div data-dictation="skip"><span>Copy</span></div>' engine={engine} />,
+    );
+    await clickPlay();
+    const callsAfterPlay = engine.calls.length;
+    const skipped = content().querySelector('[data-dictation="skip"]')!;
+    await act(async () => {
+      skipped.firstElementChild!.textContent = "Copied!";
+      skipped.appendChild(document.createElement("span"));
+      (skipped.firstElementChild!.firstChild as Text).data = "Copied!!";
+    });
+    expect(state()).toBe("true|false|playing|0");
+    expect(engine.calls.slice(callsAfterPlay)).not.toContain("cancel");
+  });
+
+  it("still stops when a mutation batch includes content outside skip regions", async () => {
+    const engine = new FakeEngine();
+    render(<Message html='<p>hello brave world</p><div data-dictation="skip">Copy</div>' engine={engine} />);
+    await clickPlay();
+    await act(async () => {
+      content().querySelector('[data-dictation="skip"]')!.textContent = "Copied!";
+      content().querySelector("p")!.textContent = "changed";
+    });
+    expect(state()).toBe("true|false|idle|-1");
+  });
+
   it("cancels speech on unmount", async () => {
     const engine = new FakeEngine();
     const { unmount } = render(<Message html="<p>hello</p>" engine={engine} />);

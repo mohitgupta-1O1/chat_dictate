@@ -30,6 +30,12 @@ Works with any renderer (react-markdown, Markdoc, plain HTML) because it reads t
    }
    ```
 
+The ref must wrap only the message body. Any content change inside it stops playback (the words
+are re-read on the next play), and everything inside it is read aloud. If dynamic UI has to live
+inside the ref'd element (copy buttons, hover cards, timestamps, or the toolbar itself), mark it
+`data-dictation="skip"` (the toolbar already does) or exclude it via `extractOptions.skip`; changes
+inside `[data-dictation="skip"]` don't stop playback.
+
 ## What gets read
 
 | Content | Behaviour |

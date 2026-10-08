@@ -32,6 +32,11 @@ describe("DictationToolbar", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("marks itself as skipped so dictation ignores it inside a message container", () => {
+    render(<DictationToolbar dictation={fakeDictation()} />);
+    expect(screen.getByRole("toolbar")).toHaveAttribute("data-dictation", "skip");
+  });
+
   it("starts reading from the Dictate button", () => {
     const d = fakeDictation();
     render(<DictationToolbar dictation={d} />);
