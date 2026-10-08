@@ -90,7 +90,13 @@ function MiniPlayer({ controller, className }: { controller: DictationController
       onKeyDown={onKeyDown}
     >
       {status === "playing" ? (
-        <button type="button" className="dictation-mini-btn" aria-label="Pause" onClick={() => controller.pause()}>
+        <button
+          type="button"
+          className="dictation-mini-btn"
+          aria-label="Pause"
+          title="Pause"
+          onClick={() => controller.pause()}
+        >
           ❚❚
         </button>
       ) : (
@@ -98,29 +104,32 @@ function MiniPlayer({ controller, className }: { controller: DictationController
           type="button"
           className="dictation-mini-btn"
           aria-label="Resume"
+          title="Resume"
           disabled={loading}
           onClick={() => void controller.resume()}
         >
-          ▶
+          {"▶\uFE0E"}
         </button>
       )}
       <button
         type="button"
         className="dictation-mini-btn"
         aria-label="Previous sentence"
+        title="Previous sentence"
         disabled={loading}
         onClick={() => void controller.skipSentence(-1)}
       >
-        ⏮
+        {"⏮\uFE0E"}
       </button>
       <button
         type="button"
         className="dictation-mini-btn"
         aria-label="Next sentence"
+        title="Next sentence"
         disabled={loading}
         onClick={() => void controller.skipSentence(1)}
       >
-        ⏭
+        {"⏭\uFE0E"}
       </button>
       <button
         type="button"
@@ -135,7 +144,13 @@ function MiniPlayer({ controller, className }: { controller: DictationController
           <span aria-hidden="true">↓</span> Back to current word
         </button>
       )}
-      <button type="button" className="dictation-mini-btn" aria-label="Stop" onClick={() => controller.stop()}>
+      <button
+        type="button"
+        className="dictation-mini-btn"
+        aria-label="Stop"
+        title="Stop"
+        onClick={() => controller.stop()}
+      >
         ✕
       </button>
     </div>

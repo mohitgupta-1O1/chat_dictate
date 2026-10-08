@@ -36,14 +36,15 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
   if (!dictation.supported) return null;
 
   // Accessible names start with the visible text (WCAG 2.5.3).
+  // U+FE0E asks for the text glyph, not a colour emoji.
   const primary =
     status === "playing"
       ? { icon: "❚❚", label: "Pause", aria: undefined, onClick: dictation.pause }
       : status === "paused"
-        ? { icon: "▶", label: "Resume", aria: undefined, onClick: dictation.resume }
+        ? { icon: "▶\uFE0E", label: "Resume", aria: undefined, onClick: dictation.resume }
         : status === "loading"
           ? { icon: "…", label: "Loading", aria: "Loading voice", onClick: undefined }
-          : { icon: "▶", label: "Dictate", aria: "Dictate: read this response aloud", onClick: dictation.play };
+          : { icon: "▶\uFE0E", label: "Dictate", aria: "Dictate: read this response aloud", onClick: dictation.play };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const action = active ? toolbarKeyAction(event) : null;
@@ -79,19 +80,21 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
             type="button"
             className="dictation-btn dictation-skip"
             aria-label="Previous sentence"
+            title="Previous sentence"
             onClick={() => dictation.skipSentence(-1)}
             disabled={status === "loading"}
           >
-            ⏮
+            {"⏮\uFE0E"}
           </button>
           <button
             type="button"
             className="dictation-btn dictation-skip"
             aria-label="Next sentence"
+            title="Next sentence"
             onClick={() => dictation.skipSentence(1)}
             disabled={status === "loading"}
           >
-            ⏭
+            {"⏭\uFE0E"}
           </button>
         </>
       )}

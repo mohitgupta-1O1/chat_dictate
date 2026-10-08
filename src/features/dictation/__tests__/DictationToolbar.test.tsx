@@ -75,7 +75,7 @@ describe("DictationToolbar", () => {
     for (const status of ["idle", "loading", "playing", "paused"] as const) {
       const { unmount } = render(<DictationToolbar dictation={fakeDictation({ status, following: false })} />);
       for (const button of screen.getAllByRole("button")) {
-        const visible = button.textContent!.replace(/[▶❚■…↓⏮⏭]/g, "").trim();
+        const visible = button.textContent!.replace(/[▶❚■…↓⏮⏭\uFE0E]/g, "").trim();
         const name = button.getAttribute("aria-label") ?? visible;
         expect(name.startsWith(visible)).toBe(true);
       }
@@ -112,6 +112,19 @@ describe("DictationToolbar", () => {
     render(<DictationToolbar dictation={d} />);
     fireEvent.keyDown(screen.getByRole("toolbar"), { key: "Escape" });
     expect(d.stop).toHaveBeenCalled();
+  });
+
+  it("renders media glyphs as text, not colour emoji, and titles icon-only buttons", () => {
+    render(<DictationToolbar dictation={fakeDictation({ status: "paused" })} />);
+    expect(screen.getByRole("button", { name: "Resume" }).textContent).toContain("▶\uFE0E");
+    for (const [name, glyph] of [
+      ["Previous sentence", "⏮"],
+      ["Next sentence", "⏭"],
+    ]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.textContent).toBe(`${glyph}\uFE0E`);
+      expect(button).toHaveAttribute("title", name);
+    }
   });
 
   it("ignores arrow keys while the voice is loading", () => {

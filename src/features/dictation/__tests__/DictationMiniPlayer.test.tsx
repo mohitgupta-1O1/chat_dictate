@@ -191,6 +191,24 @@ describe("DictationMiniPlayer", () => {
     expect(controller.getSnapshot().status).toBe("idle");
   });
 
+  it("renders media glyphs as text, not colour emoji, and titles icon-only buttons", async () => {
+    const { controller } = setup({ withToolbar: false });
+    await act(() => controller.play());
+    act(() => controller.pause());
+    for (const [name, glyph] of [
+      ["Resume", "▶"],
+      ["Previous sentence", "⏮"],
+      ["Next sentence", "⏭"],
+    ]) {
+      expect(screen.getByRole("button", { name }).textContent).toBe(`${glyph}\uFE0E`);
+    }
+    for (const name of ["Resume", "Previous sentence", "Next sentence", "Stop"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("title", name);
+    }
+    await act(() => controller.resume());
+    expect(screen.getByRole("button", { name: "Pause" })).toHaveAttribute("title", "Pause");
+  });
+
   it("renders nothing on the server", () => {
     expect(renderToString(<DictationMiniPlayer />)).toBe("");
   });
