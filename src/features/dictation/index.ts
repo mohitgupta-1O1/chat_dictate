@@ -5,3 +5,4 @@ export { DEFAULT_RATE, HIGHLIGHT_NAME, RATES, type DictationRate } from "./const
 export { DEFAULT_REPLACE, DEFAULT_SKIP, type ExtractOptions, type Replacement } from "./extract-words";
 export type { SpeakOptions, SpeechEngine, Unsubscribe, VoiceInfo } from "./engines/types";
 export { WebSpeechEngine } from "./engines/web-speech-engine";
+export { getPreferences, setPreferences, subscribePreferences, type DictationPreferences } from "./preferences";

@@ -1,4 +1,3 @@
-import { DEFAULT_RATE } from "./constants";
 import type { SpeechEngine, Unsubscribe, VoiceInfo } from "./engines/types";
 import {
   extractWords,
@@ -8,6 +7,7 @@ import {
   type ExtractedText,
 } from "./extract-words";
 import { createHighlighter, type Highlighter } from "./highlighter";
+import { getPreferences, setPreferences, subscribePreferences } from "./preferences";
 
 export type DictationStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -29,7 +29,6 @@ export interface DictationControllerOptions {
   createHighlighter?: () => Highlighter;
   /** Restart from the current word if the engine is silent this long while playing. */
   watchdogMs?: number;
-  initialRate?: number;
 }
 
 let activeController: DictationController | null = null;
@@ -53,20 +52,25 @@ export class DictationController {
   private pausedByCancel = false;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private stalledAt = -1;
+  private preferencesUnsub: Unsubscribe | null = null;
+  private preferenceRestart: Promise<void> = Promise.resolve();
 
   constructor(options: DictationControllerOptions) {
     this.options = options;
+    const { rate, voiceId } = getPreferences();
     this.snapshot = {
       status: "idle",
-      rate: options.initialRate ?? DEFAULT_RATE,
-      voiceId: undefined,
+      rate,
+      voiceId,
       currentWordIndex: -1,
       following: true,
       error: null,
     };
+    this.watchPreferences();
   }
 
   subscribe = (listener: () => void): Unsubscribe => {
+    this.watchPreferences();
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -108,14 +112,18 @@ export class DictationController {
     this.update({ status: "idle", currentWordIndex: -1, following: true, error: null });
   }
 
+  /** Saves the speed for every message; the playing one continues from its current word. */
   async setRate(rate: number): Promise<void> {
-    this.update({ rate });
-    return this.restartIfActive();
+    this.watchPreferences();
+    setPreferences({ rate });
+    return this.preferenceRestart;
   }
 
+  /** Saves the voice for every message; the playing one continues from its current word. */
   async setVoice(voiceId: string | undefined): Promise<void> {
-    this.update({ voiceId });
-    return this.restartIfActive();
+    this.watchPreferences();
+    setPreferences({ voiceId });
+    return this.preferenceRestart;
   }
 
   async seekToWord(index: number): Promise<void> {
@@ -153,6 +161,8 @@ export class DictationController {
   /** Stops and releases resources. The controller stays usable (StrictMode remounts). */
   dispose(): void {
     this.stop();
+    this.preferencesUnsub?.();
+    this.preferencesUnsub = null;
     this.highlighter?.dispose();
     this.highlighter = null;
     this.extracted = null;
@@ -173,7 +183,23 @@ export class DictationController {
     // While loading, startFrom reads the new rate/voice after its await.
   }
 
+  /** Subscribes to saved preferences (again after dispose); never during SSR. */
+  private watchPreferences(): void {
+    if (this.preferencesUnsub || typeof window === "undefined") return;
+    this.preferencesUnsub = subscribePreferences(this.handlePreferences);
+    const { rate, voiceId } = getPreferences();
+    this.update({ rate, voiceId });
+  }
+
+  private readonly handlePreferences = (): void => {
+    const { rate, voiceId } = getPreferences();
+    if (rate === this.snapshot.rate && voiceId === this.snapshot.voiceId) return;
+    this.update({ rate, voiceId });
+    this.preferenceRestart = this.restartIfActive();
+  };
+
   private async startFrom(requestedIndex: number, fromWatchdog = false): Promise<void> {
+    this.watchPreferences();
     const engine = this.options.getEngine();
     const extracted = this.ensureExtracted();
     if (!engine || !extracted) return;

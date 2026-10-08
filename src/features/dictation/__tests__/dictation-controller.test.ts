@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DictationController, stopActiveDictation } from "../dictation-controller";
 import type { VoiceInfo } from "../engines/types";
 import type { Highlighter } from "../highlighter";
+import { getPreferences, resetPreferencesForTests } from "../preferences";
 import { FakeEngine } from "./fake-engine";
 
 class FakeHighlighter implements Highlighter {
@@ -46,9 +47,53 @@ afterEach(() => {
   stopActiveDictation();
   vi.useRealTimers();
   document.body.innerHTML = "";
+  localStorage.clear();
+  resetPreferencesForTests();
 });
 
 describe("DictationController", () => {
+  it("starts with the saved speed and voice", async () => {
+    localStorage.setItem("dictation:preferences", JSON.stringify({ rate: 1.5, voiceId: "Daniel" }));
+    resetPreferencesForTests();
+    const { engine, controller, state } = setup();
+    expect(state()).toMatchObject({ rate: 1.5, voiceId: "Daniel" });
+    await controller.play();
+    expect(engine.lastSpoken).toMatchObject({ rate: 1.5, voiceId: "Daniel" });
+  });
+
+  it("saves speed and voice changes", async () => {
+    const { controller } = setup();
+    await controller.setRate(2);
+    await controller.setVoice("Alex");
+    expect(getPreferences()).toEqual({ rate: 2, voiceId: "Alex" });
+  });
+
+  it("shares a speed change with every message", async () => {
+    const a = setup();
+    const b = setup("<p>other words</p>", a.engine);
+    await a.controller.setRate(0.5);
+    expect(b.state().rate).toBe(0.5);
+  });
+
+  it("restarts the playing message when another message changes the speed", async () => {
+    const a = setup();
+    const b = setup("<p>other words</p>", a.engine);
+    await a.controller.play();
+    a.engine.emitBoundary(8);
+    await b.controller.setRate(2);
+    // a restarts on its own (it awaits voices first), so wait for its new utterance.
+    await vi.waitFor(() =>
+      expect(a.engine.lastSpoken).toEqual({ text: "three four.", rate: 2, voiceId: undefined }),
+    );
+    expect(b.state().status).toBe("idle");
+  });
+
+  it("ignores speeds outside the allowed set", async () => {
+    const { controller, state } = setup();
+    await controller.setRate(3);
+    expect(state().rate).toBe(1);
+  });
+
   it("plays the whole message from the first word", async () => {
     const { engine, highlighter, controller, state } = setup();
     await controller.play();
