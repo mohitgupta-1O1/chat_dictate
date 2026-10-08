@@ -32,6 +32,8 @@ export interface UseDictationResult extends DictationSnapshot {
   seekToWord(index: number): void;
   /** Turns following back on and scrolls the current word into view. */
   followCurrentWord(): void;
+  /** Jumps a sentence back (-1) or forward (1) while reading or paused. */
+  skipSentence(direction: -1 | 1): void;
   listVoices(): Promise<VoiceInfo[]>;
 }
 
@@ -194,6 +196,9 @@ export function useDictation(
         if (!disabled) void controller.seekToWord(index);
       },
       followCurrentWord: () => controller.followCurrentWord(),
+      skipSentence: (direction: -1 | 1) => {
+        void controller.skipSentence(direction);
+      },
       listVoices: () => controller.listVoices(),
     }),
     [controller, disabled],

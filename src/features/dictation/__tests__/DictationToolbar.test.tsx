@@ -21,6 +21,7 @@ function fakeDictation(overrides: Partial<UseDictationResult> = {}): UseDictatio
     setVoice: vi.fn(),
     seekToWord: vi.fn(),
     followCurrentWord: vi.fn(),
+    skipSentence: vi.fn(),
     listVoices: vi.fn(async () => [{ id: "v1", name: "Samantha", lang: "en-US" }]),
     ...overrides,
   };
@@ -73,7 +74,7 @@ describe("DictationToolbar", () => {
     for (const status of ["idle", "loading", "playing", "paused"] as const) {
       const { unmount } = render(<DictationToolbar dictation={fakeDictation({ status, following: false })} />);
       for (const button of screen.getAllByRole("button")) {
-        const visible = button.textContent!.replace(/[▶❚■…↓]/g, "").trim();
+        const visible = button.textContent!.replace(/[▶❚■…↓⏮⏭]/g, "").trim();
         const name = button.getAttribute("aria-label") ?? visible;
         expect(name.startsWith(visible)).toBe(true);
       }
@@ -142,5 +143,38 @@ describe("DictationToolbar", () => {
     render(<DictationToolbar dictation={d} />);
     fireEvent.click(screen.getByRole("button", { name: "Back to current word" }));
     expect(d.followCurrentWord).toHaveBeenCalled();
+  });
+  it("shows sentence skip buttons only while active", () => {
+    render(<DictationToolbar dictation={fakeDictation()} />);
+    expect(screen.queryByRole("button", { name: "Previous sentence" })).toBeNull();
+    cleanup();
+    const d = fakeDictation({ status: "playing" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Previous sentence" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next sentence" }));
+    expect(d.skipSentence).toHaveBeenNthCalledWith(1, -1);
+    expect(d.skipSentence).toHaveBeenNthCalledWith(2, 1);
+  });
+
+  it("disables sentence skip while the voice loads", () => {
+    render(<DictationToolbar dictation={fakeDictation({ status: "loading" })} />);
+    expect(screen.getByRole("button", { name: "Next sentence" })).toBeDisabled();
+  });
+
+  it("skips with the arrow keys while active", () => {
+    const d = fakeDictation({ status: "paused" });
+    render(<DictationToolbar dictation={d} />);
+    fireEvent.keyDown(screen.getByRole("toolbar"), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("toolbar"), { key: "ArrowLeft" });
+    expect(d.skipSentence).toHaveBeenNthCalledWith(1, 1);
+    expect(d.skipSentence).toHaveBeenNthCalledWith(2, -1);
+  });
+
+  it("leaves arrow keys to the voice picker", async () => {
+    const d = fakeDictation({ status: "playing" });
+    render(<DictationToolbar dictation={d} showVoicePicker />);
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Voice" }), { key: "ArrowRight" });
+    expect(d.skipSentence).not.toHaveBeenCalled();
+    await screen.findByRole("option", { name: "Samantha (en-US)" });
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { RATES } from "./constants";
 import type { DictationStatus } from "./dictation-controller";
 import type { VoiceInfo } from "./engines/types";
+import { toolbarKeyAction } from "./toolbar-keys";
 import type { UseDictationResult } from "./use-dictation";
 
 export interface DictationToolbarProps {
@@ -45,10 +46,11 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
           : { icon: "▶", label: "Dictate", aria: "Dictate: read this response aloud", onClick: dictation.play };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape" && active) {
-      event.preventDefault();
-      dictation.stop();
-    }
+    const action = active ? toolbarKeyAction(event) : null;
+    if (!action) return;
+    event.preventDefault();
+    if (action === "stop") dictation.stop();
+    else dictation.skipSentence(action === "next" ? 1 : -1);
   };
 
   return (
@@ -69,6 +71,28 @@ export function DictationToolbar({ dictation, showVoicePicker = false, className
       >
         <span aria-hidden="true">{primary.icon}</span> {primary.label}
       </button>
+      {active && (
+        <>
+          <button
+            type="button"
+            className="dictation-btn dictation-skip"
+            aria-label="Previous sentence"
+            onClick={() => dictation.skipSentence(-1)}
+            disabled={status === "loading"}
+          >
+            ⏮
+          </button>
+          <button
+            type="button"
+            className="dictation-btn dictation-skip"
+            aria-label="Next sentence"
+            onClick={() => dictation.skipSentence(1)}
+            disabled={status === "loading"}
+          >
+            ⏭
+          </button>
+        </>
+      )}
       {active && (
         <button type="button" className="dictation-btn" onClick={dictation.stop}>
           <span aria-hidden="true">■</span> Stop

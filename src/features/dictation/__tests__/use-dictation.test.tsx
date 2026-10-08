@@ -24,6 +24,9 @@ function Message({
       <button type="button" onClick={d.play}>
         play
       </button>
+      <button type="button" onClick={() => d.skipSentence(1)}>
+        next
+      </button>
       <button type="button" onClick={d.stop}>
         stop
       </button>
@@ -124,6 +127,16 @@ describe("useDictation", () => {
     await waitFor(() => expect(state()).toBe("true|false|idle|-1"));
     await clickPlay();
     expect(engine.lastSpoken?.text).toBe("second version.");
+  });
+
+  it("skips to the next sentence", async () => {
+    const engine = new FakeEngine();
+    render(<Message html="<p>One two. Three four.</p>" engine={engine} />);
+    await clickPlay();
+    await act(async () => {
+      fireEvent.click(screen.getByText("next"));
+    });
+    expect(engine.lastSpoken?.text).toBe("Three four.");
   });
 
   it("keeps playing when UI marked data-dictation=skip inside the container changes", async () => {

@@ -112,3 +112,8 @@ select.dictation-voice {
   white-space: nowrap;
   border: 0;
 }
+
+.dictation-skip {
+  padding: 0.25rem 0.45rem;
+  line-height: 1;
+}
