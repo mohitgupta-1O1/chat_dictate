@@ -30,6 +30,8 @@ Works with any renderer (react-markdown, Markdoc, plain HTML) because it reads t
    }
    ```
 
+4. Mount `<DictationMiniPlayer />` once (e.g. in `app/layout.tsx` or your chat page). It appears while a message is being read and that message's toolbar is off-screen. Lift it above a chat input with `--dictation-mini-offset` (default `1rem`).
+
 The ref must wrap only the message body. Any content change inside it stops playback (the words
 are re-read on the next play), and everything inside it is read aloud. If dynamic UI has to live
 inside the ref'd element (copy buttons, hover cards, timestamps, or the toolbar itself), mark it
@@ -53,6 +55,19 @@ import { DEFAULT_SKIP, useDictation } from "@/features/dictation";
 useDictation(ref, { extractOptions: { skip: `${DEFAULT_SKIP}, .my-citation` } });
 ```
 
+## Speed and voice are remembered
+
+Saved per browser in `localStorage` (`dictation:preferences`), shared by every message; invalid or
+blocked storage falls back to 1x and the default voice. Use `getPreferences`, `setPreferences`,
+`subscribePreferences` exports for custom UI.
+
+## Sentences
+
+The current sentence gets a faint highlight (`::highlight(dictation-sentence)`, colour
+`--dictation-sentence-bg`). ⏮ restarts the current sentence, or goes to the previous one when you
+are within its first words. ⏭ goes to the next. Paused stays paused. Keyboard ← / → (Esc stops)
+work in the toolbar and mini-player.
+
 ## Options
 
 | Option | Default | Meaning |
@@ -73,13 +88,18 @@ word into view. Following also turns on again when reading starts or the user cl
 not on speed/voice changes or pause/resume. With `autoScroll: false` nothing scrolls and the
 button never appears.
 
-The hook result exposes this as `following` (boolean) and `followCurrentWord()`, for custom toolbars.
+The hook result exposes this as `following` (boolean), `followCurrentWord()`, and `toolbarRef`
+(attach to the toolbar root so the mini-player knows when it is off-screen), for custom toolbars.
+
+### Customise colours
 
 Customise colours with `--dictation-highlight-bg`, `--dictation-highlight-fg` (text colour of the
-highlighted word) and `--dictation-accent`. The defaults follow `prefers-color-scheme`; if your app
-switches themes with a class, override them there (`:root.dark` outranks the defaults whatever the
-stylesheet order; set the light values on `:root:not(.dark)` too if the OS can be dark while your
-app is light):
+highlighted word), `--dictation-accent`, `--dictation-sentence-bg` (sentence highlight), 
+`--dictation-mini-bg`, `--dictation-mini-fg` (mini-player background and text), and 
+`--dictation-mini-offset` (mini-player distance from bottom, default `1rem`). The defaults follow 
+`prefers-color-scheme`; if your app switches themes with a class, override them there 
+(`:root.dark` outranks the defaults whatever the stylesheet order; set the light values on 
+`:root:not(.dark)` too if the OS can be dark while your app is light):
 
 ```css
 :root.dark,
@@ -87,6 +107,9 @@ app is light):
   --dictation-highlight-bg: #854d0e;
   --dictation-highlight-fg: #fef3c7;
   --dictation-accent: #60a5fa;
+  --dictation-sentence-bg: #3f2d0a;
+  --dictation-mini-bg: #f9fafb;
+  --dictation-mini-fg: #111827;
 }
 ```
 
