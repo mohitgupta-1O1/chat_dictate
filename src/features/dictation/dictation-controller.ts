@@ -66,7 +66,6 @@ export class DictationController {
       following: true,
       error: null,
     };
-    this.watchPreferences();
   }
 
   subscribe = (listener: () => void): Unsubscribe => {
@@ -116,14 +115,14 @@ export class DictationController {
   async setRate(rate: number): Promise<void> {
     this.watchPreferences();
     setPreferences({ rate });
-    return this.preferenceRestart;
+    return activeController?.preferenceRestart ?? Promise.resolve();
   }
 
   /** Saves the voice for every message; the playing one continues from its current word. */
   async setVoice(voiceId: string | undefined): Promise<void> {
     this.watchPreferences();
     setPreferences({ voiceId });
-    return this.preferenceRestart;
+    return activeController?.preferenceRestart ?? Promise.resolve();
   }
 
   async seekToWord(index: number): Promise<void> {

@@ -71,8 +71,27 @@ describe("DictationController", () => {
   it("shares a speed change with every message", async () => {
     const a = setup();
     const b = setup("<p>other words</p>", a.engine);
+    b.controller.subscribe(() => {});
     await a.controller.setRate(0.5);
     expect(b.state().rate).toBe(0.5);
+  });
+
+  it("does not listen for preference changes until subscribed or used", async () => {
+    const a = setup();
+    const b = setup("<p>other words</p>", a.engine);
+    await a.controller.setRate(2);
+    expect(b.state().rate).toBe(1);
+  });
+
+  it("picks up a speed changed while disposed when subscribed again", async () => {
+    const a = setup();
+    const b = setup("<p>other words</p>", a.engine);
+    b.controller.subscribe(() => {});
+    b.controller.dispose();
+    await a.controller.setRate(1.5);
+    expect(b.state().rate).toBe(1);
+    b.controller.subscribe(() => {});
+    expect(b.state().rate).toBe(1.5);
   });
 
   it("restarts the playing message when another message changes the speed", async () => {
@@ -81,10 +100,7 @@ describe("DictationController", () => {
     await a.controller.play();
     a.engine.emitBoundary(8);
     await b.controller.setRate(2);
-    // a restarts on its own (it awaits voices first), so wait for its new utterance.
-    await vi.waitFor(() =>
-      expect(a.engine.lastSpoken).toEqual({ text: "three four.", rate: 2, voiceId: undefined }),
-    );
+    expect(a.engine.lastSpoken).toEqual({ text: "three four.", rate: 2, voiceId: undefined });
     expect(b.state().status).toBe("idle");
   });
 
