@@ -102,12 +102,21 @@ highlighted word), `--dictation-accent`, `--dictation-sentence-bg` (sentence hig
 `:root:not(.dark)` too if the OS can be dark while your app is light):
 
 ```css
+:root:not(.dark) {
+  --dictation-highlight-bg: #fde68a;
+  --dictation-highlight-fg: #1f2937;
+  --dictation-accent: #2563eb;
+  --dictation-sentence-bg: rgb(250 204 21 / 0.18);
+  --dictation-mini-bg: #111827;
+  --dictation-mini-fg: #f9fafb;
+}
+
 :root.dark,
 .dark {
   --dictation-highlight-bg: #854d0e;
   --dictation-highlight-fg: #fef3c7;
   --dictation-accent: #60a5fa;
-  --dictation-sentence-bg: #3f2d0a;
+  --dictation-sentence-bg: rgb(250 204 21 / 0.22);
   --dictation-mini-bg: #f9fafb;
   --dictation-mini-fg: #111827;
 }
